@@ -72,6 +72,7 @@ require("lazy").setup({
             "nvim-treesitter/nvim-treesitter",
             "nvim-lua/plenary.nvim",
             "nvim-tree/nvim-web-devicons",
+            -- 'MunifTanjim/nui.nvim',
         },
         init = function(plugin)
             local builtin = require("telescope.builtin")
@@ -81,6 +82,7 @@ require("lazy").setup({
                 -- vim.
             end, {})
             vim.keymap.set("n", "<leader>sp", builtin.find_files, {})
+            vim.keymap.set("n", "<leader>sP", builtin.find_files, {})
             vim.keymap.set("n", "<leader>ss", builtin.lsp_workspace_symbols, {})
             vim.keymap.set("n", "<leader>sh", builtin.help_tags, {})
             vim.keymap.set("n", "<leader><leader>", builtin.commands, {})
@@ -189,15 +191,43 @@ require("lazy").setup({
         branch = "ts-refactor",
         config = function()
             vim.o.foldlevel = 99
+            vim.o.foldlevelstart = 99
+
             require('ufo').setup({
                 provider_selector = function(bufnr, filetype, buftype)
                     return {
                         'treesitter',
                         'indent'
                     }
-                end
+                end,
             })
         end,
+    },
+    {
+        'phaazon/hop.nvim',
+        config = function(plugin)
+            local hop = require("hop")
+            hop.setup();
+
+            local directions = require("hop.hint").HintDirection
+            vim.keymap.set(
+                { 'n', 'v' },
+                ';',
+                function()
+                    hop.hint_char1({ 
+                        direction = directions.AFTER_CURSOR,
+                        current_line_only = false, 
+                    })
+                end,
+                { remap = true })
+        end,
+    },
+    {
+        'kylechui/nvim-surround',
+        config = function(plugin)
+            -- I'm fine with the defaults here.
+            require("nvim-surround").setup({})
+        end
     },
 });
 
