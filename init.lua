@@ -11,6 +11,9 @@ if not vim.loop.fs_stat(lazypath) then
 end
 vim.opt.rtp:prepend(lazypath)
 
+vim.g.loaded_netrw = 1
+vim.g.loaded_netrwPlugin = 1
+
 require("core.mappings")
 
 require("lazy").setup({
@@ -228,6 +231,134 @@ require("lazy").setup({
             -- I'm fine with the defaults here.
             require("nvim-surround").setup({})
         end
+    },
+    {
+        "folke/trouble.nvim",
+        dependencies = { "nvim-tree/nvim-web-devicons" },
+        opts = 
+        {
+            position = "bottom",
+            icons = true,
+            mode = "workspace_diagnostics",
+            severity = vim.diagnostic.severity.ERROR,
+            group = true,
+            padding = false,
+            cycle_results = false,
+            action_keys =
+            {
+                close = "q", -- close the list
+                cancel = "<esc>",
+                refresh = "r",
+                jump = { "<cr>", "<tab>", "<2-leftmouse>" },
+                -- open_tab = { "<c-t>" }, -- open buffer in new tab
+                jump_close = "gd",
+                toggle_mode = "m", -- workspace / document
+                switch_severity = "s",
+                toggle_preview = "P",
+                hover = "<C-i>",
+                preview = "p",
+                open_code_href = "gi",
+                toggle_fold = "L",
+                previous = "k",
+                next = "j",
+                help = "<C-/>",
+            },
+            multiline = true,
+            indent_lines = true,
+            win_config = { border = "single" },
+            auto_close = false,
+            auto_preview = true,
+            auto_fold = false,
+            auto_jump = { "lsp_definitions" },
+            include_declaration = 
+            { 
+                "lsp_references",
+                "lsp_implementations",
+                "lsp_definitions",
+            },
+            signs =
+            {
+                error = "",
+                warning = "",
+                hint = "",
+                information = "",
+                other = "",
+            },
+            use_diagnostic_signs = false,
+        },
+    },
+    {
+        "nvim-tree/nvim-tree.lua",
+        config = function(plugin)
+            local api = require("nvim-tree.api")
+            local function onAttach(bufnr)
+                local function set(binding, action)
+                    vim.keymap.set('n', binding, action, { buffer = bufnr })
+                end
+                set('cd', api.tree.change_root_to_node)
+                set('<CR>', api.node.open.edit)
+                set('l', api.node.open.edit)
+                set('h', api.node.navigate.parent_close)
+                set('<C-i>', api.node.show_info_popup)
+                set('<F2>', api.fs.rename_basename)
+                set('r', api.fs.rename)
+                set('.', api.node.run.cmd)
+                set('-', api.tree.change_root_to_parent)
+                set('ti', api.tree.toggle_gitignore_filter)
+                set('d', api.fs.remove)
+                set('E', api.tree.expand_all)
+                set('<C-r>', api.tree.reload)
+                set('e', api.tree.collapse_all)
+                set('pr', api.fs.copy.relative_path)
+                set('pa', api.fs.copy.absolute_path)
+                set('a', api.fs.create)
+                set('R', api.node.run.system)
+                set('yn', api.fs.copy.filename)
+                set('g?', api.tree.toggle_help)
+            end
+            require("nvim-tree").setup(
+            {
+                on_attach = onAttach,
+                filters = {
+                    dotfiles = true,
+                },
+            })
+        end
+    },
+    {
+        "j-hui/fidget.nvim",
+        dependencies =
+        {
+            "nvim-tree/nvim-tree.lua"
+        },
+        opts =
+        {
+            -- Options related to LSP progress subsystem
+            progress =
+            {
+                -- Options related to how LSP progress messages are displayed as notifications
+                display =
+                {
+                    render_limit = 10,
+                    done_ttl = 2,
+                },
+            },
+            notification =
+            {
+                history_size = 128,
+                override_vim_notify = true,
+                view = {
+                    stack_upwards = false,
+                },
+            },
+            integration =
+            {
+                ["nvim-tree"] =
+                {
+                    enable = true,
+                },
+            },
+        },
     },
 });
 

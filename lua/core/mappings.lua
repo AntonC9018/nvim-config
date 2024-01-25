@@ -1,7 +1,19 @@
 vim.g.mapleader = " "
 
+
+
+function modifyKey(v, key)
+    return "<" .. v .. "-" .. key .. ">"
+end
+function altMacBinding(key, action)
+    vim.keymap.set("n", modifyKey('M', key), action)
+    vim.keymap.set("n", modifyKey('D', key), action)
+end
+altMacBinding("h", "<C-o>")
+altMacBinding("l", "<C-i>")
+
 -- Explorer
-vim.keymap.set("n", "we", vim.cmd.Ex)
+vim.keymap.set("n", "we", vim.cmd.NvimTreeOpen)
 
 -- Toggle line comment
 vim.keymap.set("v", "<C-/>", "<Plug>Commentary")
@@ -32,8 +44,8 @@ vim.keymap.set("v", ">", ">gv")
 vim.keymap.set("v", "<", "<gv")
 vim.keymap.set("v", "=", "=gv")
 
--- Clear highlight
-vim.keymap.set("n", "<leader>hc",
+-- Toggle highlight
+vim.keymap.set("n", "<leader>ht",
     function()
         if (vim.v.hlsearch == 1)
         then
