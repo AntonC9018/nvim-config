@@ -1,38 +1,30 @@
+local helper = require("core.helper")
+
 vim.g.mapleader = " "
 
-
-
-function modifyKey(v, key)
-    return "<" .. v .. "-" .. key .. ">"
-end
-function altMacBinding(key, action)
-    vim.keymap.set("n", modifyKey('M', key), action)
-    vim.keymap.set("n", modifyKey('D', key), action)
-end
-altMacBinding("h", "<C-o>")
-altMacBinding("l", "<C-i>")
-
--- Explorer
-vim.keymap.set("n", "we", vim.cmd.NvimTreeOpen)
+helper.altMacBinding("h", "<C-o>")
+helper.altMacBinding("l", "<C-i>")
 
 -- Toggle line comment
 vim.keymap.set("v", "<C-/>", "<Plug>Commentary")
 vim.keymap.set("n", "<C-/>", "<Plug>CommentaryLine")
 
-function mapSystemRegisterCopy(from, action)
-    vim.keymap.set("n", from, 'V"*' .. action .. 'gv=')
-    vim.keymap.set("v", from, '"*' .. action .. 'gv=')
+do
+    local function mapSystemRegisterPaste(from, action)
+        vim.keymap.set("n", from, '"*' .. action .. 'gv=')
+        vim.keymap.set("v", from, '"*' .. action .. 'gv=')
+    end
+    local function mapSystemRegisterCopy(from, action)
+        vim.keymap.set("n", from, 'V"*' .. action)
+        vim.keymap.set("v", from, '"*' .. action)
+    end
+    mapSystemRegisterCopy("<leader>c", "y")
+    mapSystemRegisterCopy("<leader>y", "y")
+    mapSystemRegisterCopy("<leader>d", "d")
+    mapSystemRegisterPaste("<leader>p", "p")
+    mapSystemRegisterPaste("<leader>P", "P")
+    mapSystemRegisterPaste("<leader>v", "p")
 end
-function mapSystemRegisterPaste(from, action)
-    vim.keymap.set("n", from, '"*' .. action)
-    vim.keymap.set("v", from, '"*' .. action)
-end
-mapSystemRegisterCopy("<leader>c", "y")
-mapSystemRegisterCopy("<leader>y", "y")
-mapSystemRegisterCopy("<leader>d", "d")
-mapSystemRegisterPaste("<leader>p", "p")
-mapSystemRegisterPaste("<leader>P", "P")
-mapSystemRegisterPaste("<leader>v", "p")
 
 vim.keymap.set("n", "&", "v$")
 
@@ -54,3 +46,22 @@ vim.keymap.set("n", "<leader>ht",
             vim.o.hls = 1
         end
     end)
+
+vim.keymap.set("n", "ww",
+    function()
+        vim.o.wrap = not vim.o.wrap
+    end)
+
+vim.keymap.set("n", "<C-h>", "<C-W><C-h>")
+vim.keymap.set("n", "<C-l>", "<C-W><C-l>")
+vim.keymap.set("n", "<C-j>", "<C-W><C-j>")
+vim.keymap.set("n", "<C-l>", "<C-W><C-l>")
+
+vim.keymap.set('n', 'wtw', [[:%s/\s\+$//e<cr>]])
+vim.keymap.set('n',
+    'wg',
+    '<C-W>o',
+    {
+        desc = "Closes the goddamn floats, for Christ sake!"
+    })
+
