@@ -7,6 +7,8 @@ vim.opt.expandtab = true
 
 vim.opt.completeopt:remove("preview")
 
+vim.o.mouse = 'a'
+
 
 do
     -- Doesn't work properly, because all bindings are not recursive by default.

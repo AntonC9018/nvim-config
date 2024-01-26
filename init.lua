@@ -203,12 +203,6 @@ require("lazy").setup({
             vim.o.foldlevelstart = 99
 
             require('ufo').setup({
-                provider_selector = function(bufnr, filetype, buftype)
-                    return {
-                        'treesitter',
-                        'indent'
-                    }
-                end,
             })
         end,
     },
@@ -325,6 +319,7 @@ require("lazy").setup({
                 set('R', api.node.run.system)
                 set('yn', api.fs.copy.filename)
                 set('g?', api.tree.toggle_help)
+                set('<2-LeftMouse>', api.node.open.edit)
             end
 
             vim.g.loaded_netrw = 1
@@ -598,9 +593,6 @@ require("lazy").setup({
                     { name = 'cmdline' },
                 })
             })
-
-            
-
         end,
     }
 });
