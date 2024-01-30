@@ -56,7 +56,7 @@ require("lazy").setup({
                     additional_vim_regex_highlighting = false,
                 },
             })
-            vim.cmd("TSUpdate");
+            vim.cmd(":silent TSUpdate");
         end,
     },
     {
@@ -172,6 +172,13 @@ require("lazy").setup({
             end, {})
             vim.keymap.set("n", "<leader>sp", builtin.find_files, {})
             vim.keymap.set("n", "<leader>sP", builtin.oldfiles, {})
+            vim.keymap.set("n", "<leader>sf",
+                function()
+                    builtin.live_grep({
+                        grep_open_files = false
+                    })
+                end, {})
+            -- TODO: search and replace
             vim.keymap.set("n", "<leader>ss", builtin.lsp_workspace_symbols, {})
             vim.keymap.set("n", "<leader>sh", builtin.help_tags, {})
             vim.keymap.set("n",
@@ -594,5 +601,25 @@ require("lazy").setup({
                 })
             })
         end,
-    }
+    },
+    {
+        'kana/vim-textobj-entire',
+        dependencies =
+        {
+            'kana/vim-textobj-user',
+        },
+    },
+    {
+        'wellle/targets.vim',
+    },
+    {
+        'AndrewRadev/bufferize.vim',
+        init = function(_)
+            vim.keymap.set('n',
+                'wm',
+                function()
+                    vim.cmd("put = execute('messages')")
+                end)
+        end
+    },
 });

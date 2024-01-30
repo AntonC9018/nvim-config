@@ -55,7 +55,7 @@ vim.keymap.set("n", "ww",
 vim.keymap.set("n", "<C-h>", "<C-W><C-h>")
 vim.keymap.set("n", "<C-l>", "<C-W><C-l>")
 vim.keymap.set("n", "<C-j>", "<C-W><C-j>")
-vim.keymap.set("n", "<C-l>", "<C-W><C-l>")
+vim.keymap.set("n", "<C-k>", "<C-W><C-k>")
 
 vim.keymap.set('n', 'wtw', [[:%s/\s\+$//e<cr>]])
 vim.keymap.set('n',

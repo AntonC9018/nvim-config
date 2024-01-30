@@ -1,4 +1,4 @@
-vim.opt.guifont = "MesloLGS NF:h21"
+vim.opt.guifont = "Consolas NF:h21"
 
 vim.opt.tabstop = 4
 vim.opt.shiftwidth = 4
