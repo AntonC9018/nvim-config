@@ -11,7 +11,6 @@ helper.altMacBinding = function(key, action)
 end
 
 helper.windowMap = function(key, actionOpen, actionToggle, opts)
-    print('hello')
     if opts == nil
     then
         opts = {}
