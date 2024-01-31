@@ -14,7 +14,8 @@ if not vim.loop.fs_stat(lazypath) then
 end
 vim.opt.rtp:prepend(lazypath)
 
-require("lazy").setup({
+local plugins = 
+{
     {
         "nvim-treesitter/nvim-treesitter",
         config = function()
@@ -81,10 +82,6 @@ require("lazy").setup({
             local helpKey = "<C-/>"
 
             require("telescope").setup({
-                actions =
-                {
-                    quit_on_open = true,
-                },
                 defaults =
                 {
                     mappings =
@@ -174,19 +171,19 @@ require("lazy").setup({
             vim.keymap.set("n", "<leader>sp", builtin.find_files, {})
             vim.keymap.set("n", "<leader>sP", builtin.oldfiles, {})
             vim.keymap.set("n", "<leader>sf",
-                function()
-                    builtin.live_grep({
-                        grep_open_files = false
-                    })
-                end, {})
+            function()
+                builtin.live_grep({
+                    grep_open_files = false
+                })
+            end, {})
             -- TODO: search and replace
             vim.keymap.set("n", "<leader>ss", builtin.lsp_workspace_symbols, {})
             vim.keymap.set("n", "<leader>sh", builtin.help_tags, {})
             vim.keymap.set("n",
-                "<leader><leader>",
-                function()
-                    vim.cmd("Telescope cmdline")
-                end, {})
+            "<leader><leader>",
+            function()
+                vim.cmd("Telescope cmdline")
+            end, {})
             vim.keymap.set("n", "<leader>h<leader>", builtin.command_history, {})
             vim.keymap.set("n", "<leader>hf", builtin.search_history, {})
             vim.keymap.set("n", "<C-e>", builtin.buffers, {})
@@ -222,15 +219,15 @@ require("lazy").setup({
 
             local directions = require("hop.hint").HintDirection
             vim.keymap.set(
-                { 'n', 'v' },
-                ';',
-                function()
-                    hop.hint_char1({
-                        direction = directions.AFTER_CURSOR,
-                        current_line_only = false,
-                    })
-                end,
-                { remap = true })
+            { 'n', 'v' },
+            ';',
+            function()
+                hop.hint_char1({
+                    direction = directions.AFTER_CURSOR,
+                    current_line_only = false,
+                })
+            end,
+            { remap = true })
         end,
     },
     {
@@ -335,17 +332,25 @@ require("lazy").setup({
 
             require("nvim-tree").setup(
             {
+                actions =
+                {
+                    open_file =
+                    {
+                        quit_on_open = true,
+                    },
+                },
                 on_attach = onAttach,
-                filters = {
+                filters =
+                {
                     dotfiles = true,
                 },
             })
 
             -- Explorer
             helper.windowMap(
-                "e",
-                vim.cmd.NvimTreeOpen,
-                vim.cmd.NvimTreeToggle)
+            "e",
+            vim.cmd.NvimTreeOpen,
+            vim.cmd.NvimTreeToggle)
         end
     },
     {
@@ -406,8 +411,8 @@ require("lazy").setup({
                     if
                         not vim.loop.fs_stat(path .. '/.luarc.json')
                         and not vim.loop.fs_stat(path .. '/.luarc.jsonc')
-                    then
-                        local settings = vim.tbl_deep_extend(
+                        then
+                            local settings = vim.tbl_deep_extend(
                             'force',
                             client.config.settings,
                             {
@@ -427,218 +432,223 @@ require("lazy").setup({
                                     },
                                 },
                             })
-                        client.config.settings = settings
+                            client.config.settings = settings
 
-                        client.notify(
+                            client.notify(
                             "workspace/didChangeConfiguration",
                             {
                                 settings = settings,
                             })
+                        end
+                        return true
                     end
-                    return true
-                end
-            })
+                })
 
-            vim.keymap.set('n', 'gE', vim.diagnostic.goto_prev)
-            vim.keymap.set('n', 'ge', vim.diagnostic.goto_next)
+                vim.keymap.set('n', 'gE', vim.diagnostic.goto_prev)
+                vim.keymap.set('n', 'ge', vim.diagnostic.goto_next)
 
-            vim.api.nvim_create_autocmd('LspAttach',
-            {
-                group = vim.api.nvim_create_augroup('UserLspConfig', {}),
-                callback = function(ev)
-                    vim.bo[ev.buf].omnifunc = 'v:lua.vim.lsp.omnifunc'
-
-                    local opts = { buffer = ev.buf }
-
-                    -- helper.windowMap(
-                    --     'd',
-                    --     vim.diagnostic.open_float,
-                    --     vim.diagnostic.hide,
-                    --     opts)
-                    vim.keymap.set({'i', "n"}, '<C-Space>', vim.lsp.omnifunc, opts)
-
-                    vim.keymap.set('n', 'gD', vim.lsp.buf.declaration, opts)
-                    vim.keymap.set('n', 'gd', vim.lsp.buf.definition, opts)
-                    vim.keymap.set({ 'n', 'i' }, '<C-i>', vim.lsp.buf.hover, opts)
-                    vim.keymap.set('n', 'gi', vim.lsp.buf.implementation, opts)
-                    vim.keymap.set({ 'n', 'i' }, '<M-i>', vim.lsp.buf.signature_help, opts)
-                    vim.keymap.set('n', 'gt', vim.lsp.buf.type_definition, opts)
-                    vim.keymap.set('n', '<F2>', vim.lsp.buf.rename, opts)
-                    vim.keymap.set({ 'n', 'v' }, '<C-.>', vim.lsp.buf.code_action, opts)
-                    vim.keymap.set('n', 'gu', vim.lsp.buf.references, opts)
-                    vim.keymap.set({ 'n', 'v' }, '<space>ref', function()
-                        vim.lsp.buf.format { async = true }
-                    end, opts)
-                end,
-            })
-        end
-    },
-    {
-        "gbprod/substitute.nvim",
-        config = function(_)
-            local substitute = require("substitute")
-            substitute.setup(
-            {
-                on_substitute = nil,
-                yank_substituted_text = false,
-                preserve_cursor_position = false,
-                modifiers = nil,
-                highlight_substituted_text =
+                vim.api.nvim_create_autocmd('LspAttach',
                 {
-                    enabled = true,
-                    timer = 500,
-                },
-                range =
+                    group = vim.api.nvim_create_augroup('UserLspConfig', {}),
+                    callback = function(ev)
+                        vim.bo[ev.buf].omnifunc = 'v:lua.vim.lsp.omnifunc'
+
+                        local opts = { buffer = ev.buf }
+
+                        -- helper.windowMap(
+                        --     'd',
+                        --     vim.diagnostic.open_float,
+                        --     vim.diagnostic.hide,
+                        --     opts)
+                        vim.keymap.set({'i', "n"}, '<C-Space>', vim.lsp.omnifunc, opts)
+
+                        vim.keymap.set('n', 'gD', vim.lsp.buf.declaration, opts)
+                        vim.keymap.set('n', 'gd', vim.lsp.buf.definition, opts)
+                        vim.keymap.set({ 'n', 'i' }, '<C-i>', vim.lsp.buf.hover, opts)
+                        vim.keymap.set('n', 'gi', vim.lsp.buf.implementation, opts)
+                        vim.keymap.set({ 'n', 'i' }, '<M-i>', vim.lsp.buf.signature_help, opts)
+                        vim.keymap.set('n', 'gt', vim.lsp.buf.type_definition, opts)
+                        vim.keymap.set('n', '<F2>', vim.lsp.buf.rename, opts)
+                        vim.keymap.set({ 'n', 'v' }, '<C-.>', vim.lsp.buf.code_action, opts)
+                        vim.keymap.set('n', 'gu', vim.lsp.buf.references, opts)
+                        vim.keymap.set({ 'n', 'v' }, '<space>ref', function()
+                            vim.lsp.buf.format { async = true }
+                        end, opts)
+                    end,
+                })
+            end
+        },
+        {
+            "gbprod/substitute.nvim",
+            config = function(_)
+                local substitute = require("substitute")
+                substitute.setup(
                 {
-                    prefix = nil,
-                    prompt_current_text = false,
-                    confirm = false,
-                    complete_word = false,
-                    subject = nil,
-                    range = nil,
-                    suffix = "",
-                    auto_apply = false,
-                    cursor_position = "end",
-                },
-                exchange =
-                {
-                    motion = false,
-                    use_esc_to_cancel = false,
+                    on_substitute = nil,
+                    yank_substituted_text = false,
                     preserve_cursor_position = false,
-                },
-            });
+                    modifiers = nil,
+                    highlight_substituted_text =
+                    {
+                        enabled = true,
+                        timer = 500,
+                    },
+                    range =
+                    {
+                        prefix = nil,
+                        prompt_current_text = false,
+                        confirm = false,
+                        complete_word = false,
+                        subject = nil,
+                        range = nil,
+                        suffix = "",
+                        auto_apply = false,
+                        cursor_position = "end",
+                    },
+                    exchange =
+                    {
+                        motion = false,
+                        use_esc_to_cancel = false,
+                        preserve_cursor_position = false,
+                    },
+                });
 
-            vim.keymap.set("n", "gr", substitute.operator)
-            vim.keymap.set("n", "grr", substitute.line)
-            vim.keymap.set("x", "gr", substitute.visual)
+                vim.keymap.set("n", "gr", substitute.operator)
+                vim.keymap.set("n", "grr", substitute.line)
+                vim.keymap.set("x", "gr", substitute.visual)
 
-            local exchange = require("substitute.exchange")
+                local exchange = require("substitute.exchange")
 
-            vim.keymap.set("n", "X", exchange.operator)
-            vim.keymap.set("n", "XX", exchange.line)
-            vim.keymap.set("x", "X", exchange.visual)
-            vim.keymap.set("n", "Xs", exchange.cancel)
-        end,
-    },
-
-    {
-        'hrsh7th/nvim-cmp',
-        dependencies =
-        {
-            'neovim/nvim-lspconfig',
-            'hrsh7th/cmp-nvim-lsp',
-            'hrsh7th/cmp-buffer',
-            'hrsh7th/cmp-path',
-            'hrsh7th/cmp-cmdline',
-            -- 'L3MON4D3/LuaSnip',
-            'saadparwaiz1/cmp_luasnip',
-            "petertriho/cmp-git",
+                vim.keymap.set("n", "X", exchange.operator)
+                vim.keymap.set("n", "XX", exchange.line)
+                vim.keymap.set("x", "X", exchange.visual)
+                vim.keymap.set("n", "Xs", exchange.cancel)
+            end,
         },
-        config = function(_)
-            -- Set up nvim-cmp.
-            local cmp = require('cmp')
-
-            cmp.setup(
+        {
+            'hrsh7th/nvim-cmp',
+            dependencies =
             {
-                snippet = {
-                    expand = function(args)
-                        require('luasnip').lsp_expand(args.body)
-                    end,
-                },
-                preselect_mode = cmp.PreselectMode.None,
-                autocomplete = true,
-                mapping = cmp.mapping.preset.insert(
+                'neovim/nvim-lspconfig',
+                'hrsh7th/cmp-nvim-lsp',
+                'hrsh7th/cmp-buffer',
+                'hrsh7th/cmp-path',
+                'hrsh7th/cmp-cmdline',
+                -- 'L3MON4D3/LuaSnip',
+                'saadparwaiz1/cmp_luasnip',
+                "petertriho/cmp-git",
+            },
+            config = function(_)
+                -- Set up nvim-cmp.
+                local cmp = require('cmp')
+
+                cmp.setup(
                 {
-                    ['<C-j>'] = cmp.mapping.select_next_item(),
-                    ['<C-k>'] = cmp.mapping.select_prev_item(),
-                    ['<Tab>'] = function(fallback)
-                        -- NOTE: 
-                        -- get_active_entry can return non-null even if the thing is not open
-                        if cmp.visible() and cmp.get_active_entry() ~= nil then
-                            cmp.confirm({ select = true })
-                        else
+                    snippet = {
+                        expand = function(args)
+                            require('luasnip').lsp_expand(args.body)
+                        end,
+                    },
+                    preselect_mode = cmp.PreselectMode.None,
+                    autocomplete = true,
+                    mapping = cmp.mapping.preset.insert(
+                    {
+                        ['<C-j>'] = cmp.mapping.select_next_item(),
+                        ['<C-k>'] = cmp.mapping.select_prev_item(),
+                        ['<Tab>'] = function(fallback)
+                            -- NOTE: 
+                            -- get_active_entry can return non-null even if the thing is not open
+                            if cmp.visible() and cmp.get_active_entry() ~= nil then
+                                cmp.confirm({ select = true })
+                            else
+                                cmp.abort()
+                                fallback()
+                            end
+                        end,
+                        ['<Esc>'] = function(fallback)
+                            if not cmp.visible() then
+                                fallback()
+                                return
+                            end
+
                             cmp.abort()
-                            fallback()
-                        end
-                    end,
-                    ['<Esc>'] = function(fallback)
-                        if not cmp.visible() then
-                            fallback()
-                            return
-                        end
 
-                        cmp.abort()
-
-                        -- Only exit to normal mode if nothing was selected prior
-                        if cmp.get_active_entry() == nil then
-                            fallback()
-                        end
-                    end,
-                }),
-                sources = cmp.config.sources(
-                {
-                    { name = 'nvim_lsp' },
-                },
-                {
-                    { name = 'buffer' },
-                }),
-                experimental =
-                {
-                    ghost_test = true,
-                },
-            })
-
-            cmp.setup.filetype('gitcommit',
-            {
-                sources = cmp.config.sources(
-                {
-                    { name = 'git' },
-                },
-                {
-                    { name = 'buffer' },
+                            -- Only exit to normal mode if nothing was selected prior
+                            if cmp.get_active_entry() == nil then
+                                fallback()
+                            end
+                        end,
+                    }),
+                    sources = cmp.config.sources(
+                    {
+                        { name = 'nvim_lsp' },
+                    },
+                    {
+                        { name = 'buffer' },
+                    }),
+                    experimental =
+                    {
+                        ghost_test = true,
+                    },
                 })
-            })
 
-            cmp.setup.cmdline({ '/', '?' },
-            {
-                mapping = cmp.mapping.preset.cmdline(),
-                sources =
+                cmp.setup.filetype('gitcommit',
                 {
-                    { name = 'buffer' },
-                },
-            })
-
-            cmp.setup.cmdline(':',
-            {
-                mapping = cmp.mapping.preset.cmdline(),
-                sources = cmp.config.sources(
-                {
-                    { name = 'path' },
-                },
-                {
-                    { name = 'cmdline' },
+                    sources = cmp.config.sources(
+                    {
+                        { name = 'git' },
+                    },
+                    {
+                        { name = 'buffer' },
+                    })
                 })
-            })
-        end,
-    },
-    {
-        'kana/vim-textobj-entire',
-        dependencies =
-        {
-            'kana/vim-textobj-user',
+
+                cmp.setup.cmdline({ '/', '?' },
+                {
+                    mapping = cmp.mapping.preset.cmdline(),
+                    sources =
+                    {
+                        { name = 'buffer' },
+                    },
+                })
+
+                cmp.setup.cmdline(':',
+                {
+                    mapping = cmp.mapping.preset.cmdline(),
+                    sources = cmp.config.sources(
+                    {
+                        { name = 'path' },
+                    },
+                    {
+                        { name = 'cmdline' },
+                    })
+                })
+            end,
         },
-    },
-    {
-        'wellle/targets.vim',
-    },
-    {
-        'AndrewRadev/bufferize.vim',
-        init = function(_)
-            vim.keymap.set('n',
-                'wm',
-                function()
-                    vim.cmd("Bufferize messages")
-                end)
-        end,
-    },
-});
+        {
+            'kana/vim-textobj-entire',
+            dependencies =
+            {
+                'kana/vim-textobj-user',
+            },
+        },
+        {
+            'wellle/targets.vim',
+        },
+    }
+
+
+vim.g.bufferize_focus_output = true
+table.insert(plugins,
+{
+    'AndrewRadev/bufferize.vim',
+    init = function()
+        vim.keymap.set('n',
+        'wm',
+        function()
+            vim.cmd("Bufferize messages")
+        end)
+    end,
+})
+
+require("lazy").setup(plugins);
