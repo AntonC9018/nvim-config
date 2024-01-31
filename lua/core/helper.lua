@@ -1,5 +1,9 @@
 local helper = {}
 
+helper.controlSlash = function()
+    return "<C-_>"
+end
+
 helper.modifyKey = function(modifier, key)
     return "<" .. modifier .. "-" .. key .. ">"
 end

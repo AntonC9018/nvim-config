@@ -41,7 +41,7 @@ local plugins =
 
                 highlight =
                 {
-                    enable = true,
+                    enabled = true,
                     disable = function(lang, buf)
                         local max_filesize = 100 * 1024 -- 100 KB
                         local ok, stats = pcall(
@@ -100,7 +100,7 @@ local plugins =
                             ["<M-k>"] = false,
                             ["<C-q>"] = false,
                             ["<M-q>"] = false,
-                            ["<C-_>"] = false,
+                            [helper.controlSlash()] = false,
                             ["<C-w>"] = false,
                             ["<C-r><C-w>"] = false,
                             ["<C-u>"] = false,
@@ -192,13 +192,69 @@ local plugins =
         end,
     },
     {
+        "nvim-tree/nvim-tree.lua",
+        config = function(plugin)
+            local api = require("nvim-tree.api")
+
+            local function onAttach(bufnr)
+                local function set(binding, action)
+                    vim.keymap.set('n', binding, action, { buffer = bufnr })
+                end
+                set('q', api.tree.close)
+                set('cd', api.tree.change_root_to_node)
+                set('<CR>', api.node.open.edit)
+                set('l', api.node.open.edit)
+                set('h', api.node.navigate.parent_close)
+                set('<C-i>', api.node.show_info_popup)
+                set('<F2>', api.fs.rename_basename)
+                set('r', api.fs.rename)
+                set('.', api.node.run.cmd)
+                set('-', api.tree.change_root_to_parent)
+                set('ti', api.tree.toggle_gitignore_filter)
+                set('d', api.fs.remove)
+                set('E', api.tree.expand_all)
+                set('<C-r>', api.tree.reload)
+                set('e', api.tree.collapse_all)
+                set('pr', api.fs.copy.relative_path)
+                set('pa', api.fs.copy.absolute_path)
+                set('a', api.fs.create)
+                set('R', api.node.run.system)
+                set('yn', api.fs.copy.filename)
+                set('g?', api.tree.toggle_help)
+                set('<2-LeftMouse>', api.node.open.edit)
+            end
+
+            vim.g.loaded_netrw = 1
+            vim.g.loaded_netrwPlugin = 1
+
+            require("nvim-tree").setup(
+            {
+                actions =
+                {
+                    open_file =
+                    {
+                        quit_on_open = true,
+                    },
+                },
+                on_attach = onAttach,
+                filters =
+                {
+                    dotfiles = true,
+                },
+            })
+
+            -- Explorer
+            helper.windowMap(
+            "e",
+            vim.cmd.NvimTreeOpen,
+            vim.cmd.NvimTreeToggle)
+        end
+    },
+    {
         "tpope/vim-commentary",
         init = function(_)
-            vim.keymap.set({ "v", "n" }, "<C-/>",
-            function()
-                print('mapping')
-                vim.cmd("Commentary")
-            end)
+            vim.keymap.set("v", helper.controlSlash(), "<Plug>Commentary")
+            vim.keymap.set("n", helper.controlSlash(), "<Plug>CommentaryLine")
         end,
     },
     {
@@ -225,16 +281,14 @@ local plugins =
             hop.setup();
 
             local directions = require("hop.hint").HintDirection
-            vim.keymap.set(
-            { 'n', 'v' },
-            ';',
-            function()
-                hop.hint_char1({
-                    direction = directions.AFTER_CURSOR,
-                    current_line_only = false,
-                })
-            end,
-            { remap = true })
+            vim.keymap.set({ 'n', 'v' }, ';',
+                function()
+                    hop.hint_char1({
+                        direction = directions.AFTER_CURSOR,
+                        current_line_only = false,
+                    })
+                end,
+                { remap = true })
         end,
     },
     {
@@ -299,65 +353,6 @@ local plugins =
             })
 
             vim.keymap.set("n", "wd", vim.cmd.Trouble)
-        end
-    },
-    {
-        "nvim-tree/nvim-tree.lua",
-        config = function(plugin)
-            local api = require("nvim-tree.api")
-
-            local function onAttach(bufnr)
-                local function set(binding, action)
-                    vim.keymap.set('n', binding, action, { buffer = bufnr })
-                end
-                set('q', api.tree.close)
-                set('cd', api.tree.change_root_to_node)
-                set('<CR>', api.node.open.edit)
-                set('l', api.node.open.edit)
-                set('h', api.node.navigate.parent_close)
-                set('<C-i>', api.node.show_info_popup)
-                set('<F2>', api.fs.rename_basename)
-                set('r', api.fs.rename)
-                set('.', api.node.run.cmd)
-                set('-', api.tree.change_root_to_parent)
-                set('ti', api.tree.toggle_gitignore_filter)
-                set('d', api.fs.remove)
-                set('E', api.tree.expand_all)
-                set('<C-r>', api.tree.reload)
-                set('e', api.tree.collapse_all)
-                set('pr', api.fs.copy.relative_path)
-                set('pa', api.fs.copy.absolute_path)
-                set('a', api.fs.create)
-                set('R', api.node.run.system)
-                set('yn', api.fs.copy.filename)
-                set('g?', api.tree.toggle_help)
-                set('<2-LeftMouse>', api.node.open.edit)
-            end
-
-            vim.g.loaded_netrw = 1
-            vim.g.loaded_netrwPlugin = 1
-
-            require("nvim-tree").setup(
-            {
-                actions =
-                {
-                    open_file =
-                    {
-                        quit_on_open = true,
-                    },
-                },
-                on_attach = onAttach,
-                filters =
-                {
-                    dotfiles = true,
-                },
-            })
-
-            -- Explorer
-            helper.windowMap(
-            "e",
-            vim.cmd.NvimTreeOpen,
-            vim.cmd.NvimTreeToggle)
         end
     },
     {
