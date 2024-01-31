@@ -418,232 +418,232 @@ local plugins =
                     if
                         not vim.loop.fs_stat(path .. '/.luarc.json')
                         and not vim.loop.fs_stat(path .. '/.luarc.jsonc')
-                        then
-                            local settings = vim.tbl_deep_extend(
-                            'force',
-                            client.config.settings,
+                    then
+                        local settings = vim.tbl_deep_extend(
+                        'force',
+                        client.config.settings,
+                        {
+                            Lua =
                             {
-                                Lua =
+                                runtime =
                                 {
-                                    runtime =
+                                    version = 'LuaJIT',
+                                },
+                                workspace =
+                                {
+                                    checkThirdParty = false,
+                                    library =
                                     {
-                                        version = 'LuaJIT',
-                                    },
-                                    workspace =
-                                    {
-                                        checkThirdParty = false,
-                                        library =
-                                        {
-                                            vim.env.VIMRUNTIME,
-                                        },
+                                        vim.env.VIMRUNTIME,
                                     },
                                 },
-                            })
-                            client.config.settings = settings
+                            },
+                        })
+                        client.config.settings = settings
 
-                            client.notify(
-                            "workspace/didChangeConfiguration",
-                            {
-                                settings = settings,
-                            })
-                        end
-                        return true
+                        client.notify(
+                        "workspace/didChangeConfiguration",
+                        {
+                            settings = settings,
+                        })
                     end
-                })
+                    return true
+                end
+            })
 
-                vim.keymap.set('n', 'gE', vim.diagnostic.goto_prev)
-                vim.keymap.set('n', 'ge', vim.diagnostic.goto_next)
+            vim.keymap.set('n', 'gE', vim.diagnostic.goto_prev)
+            vim.keymap.set('n', 'ge', vim.diagnostic.goto_next)
 
-                vim.api.nvim_create_autocmd('LspAttach',
+            vim.api.nvim_create_autocmd('LspAttach',
+            {
+                group = vim.api.nvim_create_augroup('UserLspConfig', {}),
+                callback = function(ev)
+                    vim.bo[ev.buf].omnifunc = 'v:lua.vim.lsp.omnifunc'
+
+                    local opts = { buffer = ev.buf }
+
+                    -- helper.windowMap(
+                    --     'd',
+                    --     vim.diagnostic.open_float,
+                    --     vim.diagnostic.hide,
+                    --     opts)
+                    vim.keymap.set({'i', "n"}, '<C-Space>', vim.lsp.omnifunc, opts)
+
+                    vim.keymap.set('n', 'gD', vim.lsp.buf.declaration, opts)
+                    vim.keymap.set('n', 'gd', vim.lsp.buf.definition, opts)
+                    vim.keymap.set({ 'n', 'i' }, '<C-i>', vim.lsp.buf.hover, opts)
+                    vim.keymap.set('n', 'gi', vim.lsp.buf.implementation, opts)
+                    vim.keymap.set({ 'n', 'i' }, '<M-i>', vim.lsp.buf.signature_help, opts)
+                    vim.keymap.set('n', 'gt', vim.lsp.buf.type_definition, opts)
+                    vim.keymap.set('n', '<F2>', vim.lsp.buf.rename, opts)
+                    vim.keymap.set({ 'n', 'v' }, '<C-.>', vim.lsp.buf.code_action, opts)
+                    vim.keymap.set('n', 'gu', vim.lsp.buf.references, opts)
+                    vim.keymap.set({ 'n', 'v' }, '<space>ref', function()
+                        vim.lsp.buf.format { async = true }
+                    end, opts)
+                end,
+            })
+        end
+    },
+    {
+        "gbprod/substitute.nvim",
+        config = function(_)
+            local substitute = require("substitute")
+            substitute.setup(
+            {
+                on_substitute = nil,
+                yank_substituted_text = false,
+                preserve_cursor_position = false,
+                modifiers = nil,
+                highlight_substituted_text =
                 {
-                    group = vim.api.nvim_create_augroup('UserLspConfig', {}),
-                    callback = function(ev)
-                        vim.bo[ev.buf].omnifunc = 'v:lua.vim.lsp.omnifunc'
-
-                        local opts = { buffer = ev.buf }
-
-                        -- helper.windowMap(
-                        --     'd',
-                        --     vim.diagnostic.open_float,
-                        --     vim.diagnostic.hide,
-                        --     opts)
-                        vim.keymap.set({'i', "n"}, '<C-Space>', vim.lsp.omnifunc, opts)
-
-                        vim.keymap.set('n', 'gD', vim.lsp.buf.declaration, opts)
-                        vim.keymap.set('n', 'gd', vim.lsp.buf.definition, opts)
-                        vim.keymap.set({ 'n', 'i' }, '<C-i>', vim.lsp.buf.hover, opts)
-                        vim.keymap.set('n', 'gi', vim.lsp.buf.implementation, opts)
-                        vim.keymap.set({ 'n', 'i' }, '<M-i>', vim.lsp.buf.signature_help, opts)
-                        vim.keymap.set('n', 'gt', vim.lsp.buf.type_definition, opts)
-                        vim.keymap.set('n', '<F2>', vim.lsp.buf.rename, opts)
-                        vim.keymap.set({ 'n', 'v' }, '<C-.>', vim.lsp.buf.code_action, opts)
-                        vim.keymap.set('n', 'gu', vim.lsp.buf.references, opts)
-                        vim.keymap.set({ 'n', 'v' }, '<space>ref', function()
-                            vim.lsp.buf.format { async = true }
-                        end, opts)
-                    end,
-                })
-            end
-        },
-        {
-            "gbprod/substitute.nvim",
-            config = function(_)
-                local substitute = require("substitute")
-                substitute.setup(
+                    enabled = true,
+                    timer = 500,
+                },
+                range =
                 {
-                    on_substitute = nil,
-                    yank_substituted_text = false,
+                    prefix = nil,
+                    prompt_current_text = false,
+                    confirm = false,
+                    complete_word = false,
+                    subject = nil,
+                    range = nil,
+                    suffix = "",
+                    auto_apply = false,
+                    cursor_position = "end",
+                },
+                exchange =
+                {
+                    motion = false,
+                    use_esc_to_cancel = false,
                     preserve_cursor_position = false,
-                    modifiers = nil,
-                    highlight_substituted_text =
-                    {
-                        enabled = true,
-                        timer = 500,
-                    },
-                    range =
-                    {
-                        prefix = nil,
-                        prompt_current_text = false,
-                        confirm = false,
-                        complete_word = false,
-                        subject = nil,
-                        range = nil,
-                        suffix = "",
-                        auto_apply = false,
-                        cursor_position = "end",
-                    },
-                    exchange =
-                    {
-                        motion = false,
-                        use_esc_to_cancel = false,
-                        preserve_cursor_position = false,
-                    },
-                });
+                },
+            });
 
-                vim.keymap.set("n", "gr", substitute.operator)
-                vim.keymap.set("n", "grr", substitute.line)
-                vim.keymap.set("x", "gr", substitute.visual)
+            vim.keymap.set("n", "gr", substitute.operator)
+            vim.keymap.set("n", "grr", substitute.line)
+            vim.keymap.set("x", "gr", substitute.visual)
 
-                local exchange = require("substitute.exchange")
+            local exchange = require("substitute.exchange")
 
-                vim.keymap.set("n", "X", exchange.operator)
-                vim.keymap.set("n", "XX", exchange.line)
-                vim.keymap.set("x", "X", exchange.visual)
-                vim.keymap.set("n", "Xs", exchange.cancel)
-            end,
-        },
+            vim.keymap.set("n", "X", exchange.operator)
+            vim.keymap.set("n", "XX", exchange.line)
+            vim.keymap.set("x", "X", exchange.visual)
+            vim.keymap.set("n", "Xs", exchange.cancel)
+        end,
+    },
+    {
+        'hrsh7th/nvim-cmp',
+        dependencies =
         {
-            'hrsh7th/nvim-cmp',
-            dependencies =
+            'neovim/nvim-lspconfig',
+            'hrsh7th/cmp-nvim-lsp',
+            'hrsh7th/cmp-buffer',
+            'hrsh7th/cmp-path',
+            'hrsh7th/cmp-cmdline',
+            -- 'L3MON4D3/LuaSnip',
+            'saadparwaiz1/cmp_luasnip',
+            "petertriho/cmp-git",
+        },
+        config = function(_)
+            -- Set up nvim-cmp.
+            local cmp = require('cmp')
+
+            cmp.setup(
             {
-                'neovim/nvim-lspconfig',
-                'hrsh7th/cmp-nvim-lsp',
-                'hrsh7th/cmp-buffer',
-                'hrsh7th/cmp-path',
-                'hrsh7th/cmp-cmdline',
-                -- 'L3MON4D3/LuaSnip',
-                'saadparwaiz1/cmp_luasnip',
-                "petertriho/cmp-git",
-            },
-            config = function(_)
-                -- Set up nvim-cmp.
-                local cmp = require('cmp')
-
-                cmp.setup(
+                snippet = {
+                    expand = function(args)
+                        require('luasnip').lsp_expand(args.body)
+                    end,
+                },
+                preselect_mode = cmp.PreselectMode.None,
+                autocomplete = true,
+                mapping = cmp.mapping.preset.insert(
                 {
-                    snippet = {
-                        expand = function(args)
-                            require('luasnip').lsp_expand(args.body)
-                        end,
-                    },
-                    preselect_mode = cmp.PreselectMode.None,
-                    autocomplete = true,
-                    mapping = cmp.mapping.preset.insert(
-                    {
-                        ['<C-j>'] = cmp.mapping.select_next_item(),
-                        ['<C-k>'] = cmp.mapping.select_prev_item(),
-                        ['<Tab>'] = function(fallback)
-                            if not cmp.visible() then
-                                print('not visible')
-                                fallback()
-                                print('done fallback')
-                                return
-                            end
+                    ['<C-j>'] = cmp.mapping.select_next_item(),
+                    ['<C-k>'] = cmp.mapping.select_prev_item(),
+                    ['<Tab>'] = function(fallback)
+                        if not cmp.visible() then
+                            print('not visible')
+                            fallback()
+                            print('done fallback')
+                            return
+                        end
 
-                            print('confirmed')
-                            cmp.confirm({ select = true })
-                        end,
-                        ['<Esc>'] = function(fallback)
-                            if not cmp.visible() then
-                                fallback()
-                                return
-                            end
+                        print('confirmed')
+                        cmp.confirm({ select = true })
+                    end,
+                    ['<Esc>'] = function(fallback)
+                        if not cmp.visible() then
+                            fallback()
+                            return
+                        end
 
-                            cmp.abort()
+                        cmp.abort()
 
-                            -- Only exit to normal mode if nothing was selected prior
-                            if cmp.get_active_entry() == nil then
-                                fallback()
-                            end
-                        end,
-                    }),
-                    sources = cmp.config.sources(
-                    {
-                        { name = 'nvim_lsp' },
-                    },
-                    {
-                        { name = 'buffer' },
-                    }),
-                    experimental =
-                    {
-                        ghost_test = true,
-                    },
-                })
-
-                cmp.setup.filetype('gitcommit',
+                        -- Only exit to normal mode if nothing was selected prior
+                        if cmp.get_active_entry() == nil then
+                            fallback()
+                        end
+                    end,
+                }),
+                sources = cmp.config.sources(
                 {
-                    sources = cmp.config.sources(
-                    {
-                        { name = 'git' },
-                    },
-                    {
-                        { name = 'buffer' },
-                    })
-                })
-
-                cmp.setup.cmdline({ '/', '?' },
+                    { name = 'nvim_lsp' },
+                },
                 {
-                    mapping = cmp.mapping.preset.cmdline(),
-                    sources =
-                    {
-                        { name = 'buffer' },
-                    },
-                })
-
-                cmp.setup.cmdline(':',
+                    { name = 'buffer' },
+                }),
+                experimental =
                 {
-                    mapping = cmp.mapping.preset.cmdline(),
-                    sources = cmp.config.sources(
-                    {
-                        { name = 'path' },
-                    },
-                    {
-                        { name = 'cmdline' },
-                    })
-                })
-            end,
-        },
-        {
-            'kana/vim-textobj-entire',
-            dependencies =
+                    ghost_test = true,
+                },
+            })
+
+            cmp.setup.filetype('gitcommit',
             {
-                'kana/vim-textobj-user',
-            },
-        },
+                sources = cmp.config.sources(
+                {
+                    { name = 'git' },
+                },
+                {
+                    { name = 'buffer' },
+                })
+            })
+
+            cmp.setup.cmdline({ '/', '?' },
+            {
+                mapping = cmp.mapping.preset.cmdline(),
+                sources =
+                {
+                    { name = 'buffer' },
+                },
+            })
+
+            cmp.setup.cmdline(':',
+            {
+                mapping = cmp.mapping.preset.cmdline(),
+                sources = cmp.config.sources(
+                {
+                    { name = 'path' },
+                },
+                {
+                    { name = 'cmdline' },
+                })
+            })
+        end,
+    },
+    {
+        'kana/vim-textobj-entire',
+        dependencies =
         {
-            'wellle/targets.vim',
+            'kana/vim-textobj-user',
         },
-    }
+    },
+    {
+        'wellle/targets.vim',
+    },
+}
 
 
 vim.g.bufferize_focus_output = true
