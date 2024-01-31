@@ -1,5 +1,6 @@
 require("core.editor")
 require("core.mappings")
+
 local helper = require("core.helper")
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 if not vim.loop.fs_stat(lazypath) then
@@ -282,11 +283,11 @@ require("lazy").setup({
                 },
                 signs =
                 {
-                    error = "!",
-                    warning = "?",
-                    hint = "$",
-                    information = "i",
-                    other = "*",
+                    error = "",
+                    warning = "",
+                    hint = "",
+                    information = "",
+                    other = "",
                 },
                 use_diagnostic_signs = false,
             })
@@ -456,14 +457,14 @@ require("lazy").setup({
 
                     vim.keymap.set('n', 'gD', vim.lsp.buf.declaration, opts)
                     vim.keymap.set('n', 'gd', vim.lsp.buf.definition, opts)
-                    vim.keymap.set({ 'n', 'i' }, '<C-i>', vim.lsp.buf.hover, opts)
+                    vim.keymap.set({'n', 'i'}, '<C-i>', vim.lsp.buf.hover, opts)
                     vim.keymap.set('n', 'gi', vim.lsp.buf.implementation, opts)
-                    vim.keymap.set({ 'n', 'i' }, '<M-i>', vim.lsp.buf.signature_help, opts)
+                    vim.keymap.set({'n', 'i'}, '<M-i>', vim.lsp.buf.signature_help, opts)
                     vim.keymap.set('n', 'gt', vim.lsp.buf.type_definition, opts)
                     vim.keymap.set('n', '<F2>', vim.lsp.buf.rename, opts)
                     vim.keymap.set({ 'n', 'v' }, '<C-.>', vim.lsp.buf.code_action, opts)
                     vim.keymap.set('n', 'gu', vim.lsp.buf.references, opts)
-                    vim.keymap.set({ 'n', 'v' }, '<space>ref', function()
+                    vim.keymap.set('n', '<space>ref', function()
                         vim.lsp.buf.format { async = true }
                     end, opts)
                 end,
@@ -528,46 +529,39 @@ require("lazy").setup({
             'hrsh7th/cmp-path',
             'hrsh7th/cmp-cmdline',
             -- 'L3MON4D3/LuaSnip',
-            'saadparwaiz1/cmp_luasnip',
+            -- 'saadparwaiz1/cmp_luasnip',
             "petertriho/cmp-git",
         },
         config = function(_)
             -- Set up nvim-cmp.
             local cmp = require('cmp')
 
+            local function complete(fallback)
+                if cmp.get_active_entry() ~= nil then
+                    cmp.confirm({ select = true })
+		    else
+			    fallback()
+		    end
+            end
+
             cmp.setup(
             {
-                snippet = {
-                    expand = function(args)
-                        require('luasnip').lsp_expand(args.body)
-                    end,
-                },
                 preselect_mode = cmp.PreselectMode.None,
                 autocomplete = true,
                 mapping = cmp.mapping.preset.insert(
                 {
+                    ['<C-b>'] = cmp.mapping.scroll_docs(-4),
+                    ['<C-f>'] = cmp.mapping.scroll_docs(4),
                     ['<C-j>'] = cmp.mapping.select_next_item(),
                     ['<C-k>'] = cmp.mapping.select_prev_item(),
-                    ['<Tab>'] = function complete(fallback)
-                        if cmp.visible() and cmp.get_active_entry() ~= nil then
-                            cmp.confirm({ select = true })
-                        else
-                            cmp.abort()
-                            fallback()
-                        end
-                    end,
+                    ['<Tab>'] = complete,
+                    ['<CR>'] = complete,
                     ['<Esc>'] = function(fallback)
-                        if not cmp.visible() then
-                            fallback()
-                            return
-                        end
-
-                        cmp.abort()
-
-                        -- Only exit to normal mode if nothing was selected prior
                         if cmp.get_active_entry() == nil then
-                            fallback()
-                        end
+                            cmp.abort()
+		    else
+			    fallback()
+		    end
                     end,
                 }),
                 sources = cmp.config.sources(
