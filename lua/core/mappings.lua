@@ -5,10 +5,6 @@ vim.g.mapleader = " "
 helper.altMacBinding("h", "<C-o>")
 helper.altMacBinding("l", "<C-i>")
 
--- Toggle line comment
-vim.keymap.set("v", "<C-/>", "<Plug>Commentary")
-vim.keymap.set("n", "<C-/>", "<Plug>CommentaryLine")
-
 do
     local function mapSystemRegisterPaste(from, action)
         vim.keymap.set("n", from, '"*' .. action .. 'gv=')

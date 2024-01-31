@@ -14,7 +14,7 @@ if not vim.loop.fs_stat(lazypath) then
 end
 vim.opt.rtp:prepend(lazypath)
 
-local plugins = 
+local plugins =
 {
     {
         "nvim-treesitter/nvim-treesitter",
@@ -79,7 +79,7 @@ local plugins =
         },
         config = function()
             local actions = require("telescope.actions")
-            local helpKey = "<C-/>"
+            local helpKey = "<F1>"
 
             require("telescope").setup({
                 defaults =
@@ -192,7 +192,14 @@ local plugins =
         end,
     },
     {
-        "tpope/vim-commentary"
+        "tpope/vim-commentary",
+        init = function(_)
+            vim.keymap.set({ "v", "n" }, "<C-/>",
+            function()
+                print('mapping')
+                vim.cmd("Commentary")
+            end)
+        end,
     },
     {
         'kevinhwang91/nvim-ufo',
@@ -556,14 +563,15 @@ local plugins =
                         ['<C-j>'] = cmp.mapping.select_next_item(),
                         ['<C-k>'] = cmp.mapping.select_prev_item(),
                         ['<Tab>'] = function(fallback)
-                            -- NOTE: 
-                            -- get_active_entry can return non-null even if the thing is not open
-                            if cmp.visible() and cmp.get_active_entry() ~= nil then
-                                cmp.confirm({ select = true })
-                            else
-                                cmp.abort()
+                            if not cmp.visible() then
+                                print('not visible')
                                 fallback()
+                                print('done fallback')
+                                return
                             end
+
+                            print('confirmed')
+                            cmp.confirm({ select = true })
                         end,
                         ['<Esc>'] = function(fallback)
                             if not cmp.visible() then
