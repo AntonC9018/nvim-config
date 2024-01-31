@@ -64,4 +64,4 @@ vim.keymap.set('n',
     {
         desc = "Closes the goddamn floats, for Christ sake!"
     })
-
+vim.g.bufferize_focus_output = true

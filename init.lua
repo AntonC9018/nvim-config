@@ -81,6 +81,10 @@ require("lazy").setup({
             local helpKey = "<C-/>"
 
             require("telescope").setup({
+                actions =
+                {
+                    quit_on_open = true,
+                },
                 defaults =
                 {
                     mappings =
@@ -166,7 +170,6 @@ require("lazy").setup({
 
             vim.keymap.set("n", "<leader>so", function()
                 vim.cmd.Telescope()
-                -- vim.
             end, {})
             vim.keymap.set("n", "<leader>sp", builtin.find_files, {})
             vim.keymap.set("n", "<leader>sP", builtin.oldfiles, {})
@@ -265,7 +268,7 @@ require("lazy").setup({
                     toggle_fold = "L",
                     previous = "k",
                     next = "j",
-                    hlp = "<C-/>",
+                    help = "<C-/>",
                 },
                 multiline = true,
                 indent_lines = true,
@@ -548,7 +551,9 @@ require("lazy").setup({
                 {
                     ['<C-j>'] = cmp.mapping.select_next_item(),
                     ['<C-k>'] = cmp.mapping.select_prev_item(),
-                    ['<Tab>'] = function complete(fallback)
+                    ['<Tab>'] = function(fallback)
+                        -- NOTE: 
+                        -- get_active_entry can return non-null even if the thing is not open
                         if cmp.visible() and cmp.get_active_entry() ~= nil then
                             cmp.confirm({ select = true })
                         else
@@ -632,8 +637,8 @@ require("lazy").setup({
             vim.keymap.set('n',
                 'wm',
                 function()
-                    vim.cmd("put = execute('messages')")
+                    vim.cmd("Bufferize messages")
                 end)
-        end
+        end,
     },
 });
