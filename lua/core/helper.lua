@@ -1,6 +1,8 @@
 local helper = {}
 
 helper.controlSlash = function()
+    -- Some terminals can't send control-slash to apps
+    -- (ConEmu can't, at the very least)
     return "<C-_>"
 end
 
