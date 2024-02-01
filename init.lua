@@ -634,24 +634,72 @@ local plugins =
         {
             'kana/vim-textobj-user',
         },
+        init = function(_)
+            vim.keymap.set('n', '<leader>a', 'vae', { remap = true })
+        end,
     },
     {
         'wellle/targets.vim',
     },
 }
 
-
 vim.g.bufferize_focus_output = true
 table.insert(plugins,
 {
     'AndrewRadev/bufferize.vim',
     init = function()
-        vim.keymap.set('n',
-        'wm',
-        function()
+        vim.keymap.set('n', 'wm', function()
             vim.cmd("Bufferize messages")
         end)
     end,
+})
+
+-- This thing is just not going to work.
+-- While it does remap single letter commands fine, mutliple letters don't work.
+-- Using the builtin langmap feature also doesn't work.
+-- Specifying a russian keyboard layout does not help, because it would type 
+-- russian letters independent of the selected language.
+local function registerLangmaps()
+    local utf8 = require('utf8')
+
+    local langmaps =
+    {
+        { "ФИСВУАПРШОЛДЬТЩЗЙКЫЕГМЦЧНЯ", "ABCDEFGHIJKLMNOPQRSTUVWXYZ" },
+        { "фисвуапршолдьтщзйкыегмцчня", "abcdefghijklmnopqrstuvwxyz" },
+        { "ĂÎÂȘȚ", ";{}|:" },
+        { "ăîâșț", ",[];'" },
+    };
+
+    for _, langmap in pairs(langmaps) do
+        if #langmap ~= 2 then
+            error("The langmap arrays must have 2 elements.")
+        end
+
+        local a = langmap[1]
+        local b = langmap[2]
+        local getCharA = utf8.codes(a)
+        local getCharB = utf8.codes(b)
+        while true do
+            local _, charA = getCharA()
+            local _, charB = getCharB()
+            if charA == nil and charB == nil then
+                break
+            end
+            if charA == nil or charB == nil then
+                error("The langmap strings have different length (in utf8 code points)")
+            end
+
+            vim.keymap.set({ 'n', 'v' }, charA, charB, { remap = true })
+        end
+    end
+end
+
+table.insert(plugins,
+{
+    'uga-rosa/utf8.nvim',
+    config = function(_)
+        -- registerLangmaps()
+    end
 })
 
 require("lazy").setup(plugins);

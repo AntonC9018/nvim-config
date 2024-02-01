@@ -9,16 +9,3 @@ vim.opt.completeopt:remove("preview")
 
 vim.o.mouse = 'a'
 
-
-do
-    -- Doesn't work properly, because all bindings are not recursive by default.
-    -- This just remaps each character individually, I think.
-    -- local russianLangmap = 'ФИСВУАПРШОЛДЬТЩЗЙКЫЕГМЦЧНЯ;ABCDEFGHIJKLMNOPQRSTUVWXYZ,фисвуапршолдьтщзйкыегмцчня;abcdefghijklmnopqrstuvwxyz'
-    -- local romanianLangmap = [[ĂÎÂȘȚ;{}|:,ăîâșț[]\;']]
-    -- local combinedLangmap = russianLangmap .. ',' .. romanianLangmap
-    -- vim.opt.langmap = combinedLangmap
-
-    --
-    -- vim.opt.keymap = "russian-jcukenwin"
-end
-
