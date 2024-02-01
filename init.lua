@@ -652,6 +652,33 @@ local plugins =
     {
         'jghauser/follow-md-links.nvim',
     },
+    {
+        "booperlv/nvim-gomove",
+        opts =
+        {
+            map_defaults = false,
+            reindent = true,
+            undojoin = true,
+            move_past_end_col = true,
+        },
+        init = function(_)
+            for _, mode in ipairs({ 'n', 'v' }) do
+                local modeCapital = string.upper(mode)
+                helper.altMacBinding(
+                {
+                    mode = mode,
+                    key = 'k',
+                    action = '<Plug>Go' .. modeCapital .. 'SMUp',
+                })
+                helper.altMacBinding(
+                {
+                    mode = mode,
+                    key = 'j',
+                    action = '<Plug>Go' .. modeCapital .. 'SMDown',
+                })
+            end
+        end,
+    },
 }
 
 vim.g.bufferize_focus_output = true

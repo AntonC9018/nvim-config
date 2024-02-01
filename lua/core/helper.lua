@@ -11,6 +11,10 @@ helper.tab = function()
     return "<C-i>"
 end
 
+helper.lastTextChange = function()
+    return '`[v`]'
+end
+
 helper.modifyKey = function(modifier, key)
     return "<" .. modifier .. "-" .. key .. ">"
 end

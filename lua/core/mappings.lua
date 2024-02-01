@@ -7,8 +7,9 @@ helper.altMacBinding({ key = "l", action = "<C-i>" })
 
 do
     local function mapSystemRegisterPaste(from, action)
-        vim.keymap.set("n", from, 'v"*' .. action .. 'gv=')
-        vim.keymap.set("v", from, '"*' .. action .. 'gv=')
+        local mapping =  '"*' .. action .. helper.lastTextChange() .. '='
+        vim.keymap.set("n", from, mapping)
+        vim.keymap.set("v", from, mapping)
     end
     local function mapSystemRegisterCopy(from, action)
         vim.keymap.set("n", from, 'V"*' .. action)
@@ -28,9 +29,9 @@ vim.keymap.set("n", "&", "v$")
 vim.keymap.set("n", "L", "zo")
 vim.keymap.set("n", "H", "zc")
 
-vim.keymap.set("v", ">", ">gv")
-vim.keymap.set("v", "<", "<gv")
-vim.keymap.set("v", "=", "=gv")
+vim.keymap.set("v", ">", ">" .. helper.lastTextChange())
+vim.keymap.set("v", "<", "<gv" .. helper.lastTextChange())
+vim.keymap.set("v", "=", "=gv" .. helper.lastTextChange())
 
 -- Toggle highlight
 vim.keymap.set("n", "<leader>ht", function()
@@ -53,11 +54,14 @@ vim.keymap.set("n", "<C-l>", "<C-W><C-l>")
 vim.keymap.set("n", "<C-j>", "<C-W><C-j>")
 vim.keymap.set("n", "<C-k>", "<C-W><C-k>")
 
-vim.keymap.set('n', '<leader>tw', [[:%s/\s\+$//e<cr>]], {
+vim.keymap.set('n', '<leader>tw', [[:%s/\s\+$//e<cr>]],
+{
     desc = 'Trim whitespace',
 })
 
 vim.keymap.set('n', 'wo', '<C-W>o',
 {
-    desc = "Closes the goddamn floats, for Christ sake!"
+    desc = "Closes the goddamn floats, for Christ sake!",
 })
+vim.keymap.set('n', '<leader>*', helper.lastTextChange())
+
