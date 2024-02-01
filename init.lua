@@ -466,9 +466,19 @@ local plugins =
 
                     vim.keymap.set('n', 'gD', vim.lsp.buf.declaration, opts)
                     vim.keymap.set('n', 'gd', vim.lsp.buf.definition, opts)
-                    vim.keymap.set({ 'n', 'i' }, '<C-i>', vim.lsp.buf.hover, opts)
+                    helper.altMacBinding({
+                        mode = { 'n', 'i' },
+                        key = 'i',
+                        action = vim.lsp.buf.hover,
+                        opts = opts,
+                    })
+                    helper.altMacBinding({
+                        mode = { 'n', 'i' },
+                        key = 'u',
+                        action = vim.lsp.buf.signature_help,
+                        opts = opts,
+                    })
                     vim.keymap.set('n', 'gi', vim.lsp.buf.implementation, opts)
-                    vim.keymap.set({ 'n', 'i' }, '<M-i>', vim.lsp.buf.signature_help, opts)
                     vim.keymap.set('n', 'gt', vim.lsp.buf.type_definition, opts)
                     vim.keymap.set('n', '<F2>', vim.lsp.buf.rename, opts)
                     vim.keymap.set({ 'n', 'v' }, '<C-.>', vim.lsp.buf.code_action, opts)
@@ -536,7 +546,7 @@ local plugins =
             'hrsh7th/cmp-buffer',
             'hrsh7th/cmp-path',
             'hrsh7th/cmp-cmdline',
-            -- 'L3MON4D3/LuaSnip',
+            'L3MON4D3/LuaSnip',
             'saadparwaiz1/cmp_luasnip',
             "petertriho/cmp-git",
         },
@@ -557,7 +567,7 @@ local plugins =
                 {
                     ['<C-j>'] = cmp.mapping.select_next_item(),
                     ['<C-k>'] = cmp.mapping.select_prev_item(),
-                    ['<Tab>'] = function(fallback)
+                    [helper.tab()] = function(fallback)
                         if not cmp.visible() then
                             fallback()
                             return

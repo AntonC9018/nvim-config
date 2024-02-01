@@ -2,8 +2,8 @@ local helper = require("core.helper")
 
 vim.g.mapleader = " "
 
-helper.altMacBinding("h", "<C-o>")
-helper.altMacBinding("l", "<C-i>")
+helper.altMacBinding({ key = "h", action = "<C-o>" })
+helper.altMacBinding({ key = "l", action = "<C-i>" })
 
 do
     local function mapSystemRegisterPaste(from, action)

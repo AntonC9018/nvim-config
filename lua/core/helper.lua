@@ -6,14 +6,38 @@ helper.controlSlash = function()
     return "<C-_>"
 end
 
+helper.tab = function()
+    -- Same here
+    return "<C-i>"
+end
+
 helper.modifyKey = function(modifier, key)
     return "<" .. modifier .. "-" .. key .. ">"
 end
 
-helper.altMacBinding = function(key, action)
-    vim.keymap.set("n", helper.modifyKey('M', key), action)
-    vim.keymap.set("n", helper.modifyKey('D', key), action)
-    vim.keymap.set("n", helper.modifyKey('A', key), action)
+--- Define mappings for alt key, command key, and meta key.
+--- @param table
+helper.altMacBinding = function(table)
+    local key = table.key
+    if key == nil then
+        error("table.key must not be nil")
+    end
+
+    local mode = table.mode
+    if mode == nil then
+        mode = "n"
+    end
+
+    local action = table.action
+    if action == nil then
+        error("table.action must not be nil")
+    end
+
+    local opts = table.opts
+
+    vim.keymap.set(mode, helper.modifyKey('M', key), action, opts)
+    vim.keymap.set(mode, helper.modifyKey('D', key), action, opts)
+    vim.keymap.set(mode, helper.modifyKey('A', key), action, opts)
 end
 
 helper.windowMap = function(key, actionOpen, actionToggle, opts)
