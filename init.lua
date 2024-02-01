@@ -559,14 +559,12 @@ local plugins =
                     ['<C-k>'] = cmp.mapping.select_prev_item(),
                     ['<Tab>'] = function(fallback)
                         if not cmp.visible() then
-                            print('not visible')
                             fallback()
-                            print('done fallback')
                             return
                         end
 
-                        print('confirmed')
                         cmp.confirm({ select = true })
+                        cmp.close()
                     end,
                     ['<Esc>'] = function(fallback)
                         if not cmp.visible() then
@@ -641,6 +639,9 @@ local plugins =
     {
         'wellle/targets.vim',
     },
+    {
+        'jghauser/follow-md-links.nvim',
+    },
 }
 
 vim.g.bufferize_focus_output = true
@@ -655,43 +656,43 @@ table.insert(plugins,
 })
 
 -- This thing is just not going to work.
--- While it does remap single letter commands fine, mutliple letters don't work.
--- Using the builtin langmap feature also doesn't work.
--- Specifying a russian keyboard layout does not help, because it would type 
--- russian letters independent of the selected language.
+-- It works only for builtin commands, not for regular mappings.
 local function registerLangmaps()
-    local utf8 = require('utf8')
-
     local langmaps =
     {
-        { "ФИСВУАПРШОЛДЬТЩЗЙКЫЕГМЦЧНЯ", "ABCDEFGHIJKLMNOPQRSTUVWXYZ" },
-        { "фисвуапршолдьтщзйкыегмцчня", "abcdefghijklmnopqrstuvwxyz" },
+        { "ФИСВУАПРШОЛДЬТЩЗЙКЫЕГМЦЧНЯЖХЪЭЮ", 'ABCDEFGHIJKLMNOPQRSTUVWXYZ:{}">' },
+        { "фисвуапршолдьтщзйкыегмцчняжхъэю", "abcdefghijklmnopqrstuvwxyz;[]'." },
         { "ĂÎÂȘȚ", ";{}|:" },
         { "ăîâșț", ",[];'" },
     };
 
+    local temp = {}
     for _, langmap in pairs(langmaps) do
         if #langmap ~= 2 then
             error("The langmap arrays must have 2 elements.")
         end
 
-        local a = langmap[1]
-        local b = langmap[2]
-        local getCharA = utf8.codes(a)
-        local getCharB = utf8.codes(b)
-        while true do
-            local _, charA = getCharA()
-            local _, charB = getCharB()
-            if charA == nil and charB == nil then
-                break
-            end
-            if charA == nil or charB == nil then
-                error("The langmap strings have different length (in utf8 code points)")
-            end
+        local patternToEscape = '[,;"|]'
 
-            vim.keymap.set({ 'n', 'v' }, charA, charB, { remap = true })
+        local a = langmap[1]
+        do
+            -- I'm guessing this is a list?
+            -- The documentation doesn't specify this.
+            local _, _, characterFound = string.find(a, patternToEscape)
+            if characterFound ~= nil then
+                error("Disallowed character " .. characterFound .. " in from mapping.")
+            end
         end
+
+        local b = langmap[2]
+        local escapedB = string.gsub(b, patternToEscape, [[\%0]])
+        local joinedLangmap = a .. ';' .. escapedB
+        table.insert(temp, joinedLangmap)
     end
+
+    local completeLangmap = table.concat(temp, ",")
+    vim.o.langmap = completeLangmap
+    -- vim.o.langremap = false
 end
 
 table.insert(plugins,
