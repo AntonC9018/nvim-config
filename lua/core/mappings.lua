@@ -7,9 +7,9 @@ helper.altMacBinding({ key = "l", action = "<C-i>" })
 
 do
     local function mapSystemRegisterPaste(from, action)
-        local mapping =  '"*' .. action .. helper.lastTextChange() .. '='
+        local mapping = '"*' .. action
         vim.keymap.set("n", from, mapping)
-        vim.keymap.set("v", from, mapping)
+        vim.keymap.set("v", from, mapping .. 'gv')
     end
     local function mapSystemRegisterCopy(from, action)
         vim.keymap.set("n", from, 'V"*' .. action)

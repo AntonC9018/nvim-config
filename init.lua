@@ -424,25 +424,25 @@ local plugins =
                         and not vim.loop.fs_stat(path .. '/.luarc.jsonc')
                     then
                         local settings = vim.tbl_deep_extend(
-                        'force',
-                        client.config.settings,
-                        {
-                            Lua =
+                            'force',
+                            client.config.settings,
                             {
-                                runtime =
+                                Lua =
                                 {
-                                    version = 'LuaJIT',
-                                },
-                                workspace =
-                                {
-                                    checkThirdParty = false,
-                                    library =
+                                    runtime =
                                     {
-                                        vim.env.VIMRUNTIME,
+                                        version = 'LuaJIT',
+                                    },
+                                    workspace =
+                                    {
+                                        checkThirdParty = false,
+                                        library =
+                                        {
+                                            vim.env.VIMRUNTIME,
+                                        },
                                     },
                                 },
-                            },
-                        })
+                            })
                         client.config.settings = settings
 
                         client.notify("workspace/didChangeConfiguration",
@@ -557,6 +557,7 @@ local plugins =
         config = function(_)
             -- Set up nvim-cmp.
             local cmp = require('cmp')
+            require("copilot_cmp").setup()
 
             local defaultSources = cmp.config.sources(
             {
@@ -576,8 +577,32 @@ local plugins =
                 { name = 'buffer' },
             })
 
+            local function tryResetCompletionTarget(completionTarget)
+                local context = cmp.core:get_context()
+
+                if not cmp.visible() then
+                    context.completionTarget = completionTarget
+                    return true
+                end
+
+                if context.completionTarget == completionTarget then
+                    return false
+                end
+                context.completionTarget = completionTarget
+                return true
+            end
+
+
             local defaultMapping =
             {
+                ['<C-Space>'] = function(_)
+                    if not tryResetCompletionTarget('regular') then
+                        return
+                    end
+
+                    cmp.abort()
+                    cmp.complete()
+                end,
                 ['<C-j>'] = cmp.mapping.select_next_item(),
                 ['<C-k>'] = cmp.mapping.select_prev_item(),
                 [helper.tab()] = function(fallback)
@@ -604,6 +629,27 @@ local plugins =
                 end,
             }
 
+            local defaultSorting =
+            {
+                priority_weight = 2,
+                comparators =
+                {
+                    require("copilot_cmp.comparators").prioritize,
+
+                    -- Below is the default comparitor list and order for nvim-cmp
+                    cmp.config.compare.offset,
+                    -- cmp.config.compare.scopes, --this is commented in nvim-cmp too
+                    cmp.config.compare.exact,
+                    cmp.config.compare.score,
+                    cmp.config.compare.recently_used,
+                    cmp.config.compare.locality,
+                    cmp.config.compare.kind,
+                    cmp.config.compare.sort_text,
+                    cmp.config.compare.length,
+                    cmp.config.compare.order,
+                },
+            }
+
             cmp.setup(
             {
                 snippet =
@@ -614,31 +660,34 @@ local plugins =
                 },
                 preselect_mode = cmp.PreselectMode.None,
                 autocomplete = true,
-                mapping = helper.cmpNormalizeMappings(defaultMapping),
+                mapping = vim.tbl_deep_extend(
+                    'error',
+                    defaultMapping,
+                    {
+                        ["<C-\\>"] = function(_)
+                            if not tryResetCompletionTarget('copilot') then
+                                return
+                            end
+                            cmp.abort()
+                            cmp.complete(
+                            {
+                                config =
+                                {
+                                    sources =
+                                    {
+                                        {
+                                            name = 'copilot',
+                                        },
+                                    },
+                                },
+                            })
+                        end,
+                    }),
                 sources = defaultSources,
+                sorting = defaultSorting,
                 experimental =
                 {
                     ghost_test = true,
-                },
-                sorting =
-                {
-                    priority_weight = 2,
-                    comparators =
-                    {
-                        require("copilot_cmp.comparators").prioritize,
-
-                        -- Below is the default comparitor list and order for nvim-cmp
-                        cmp.config.compare.offset,
-                        -- cmp.config.compare.scopes, --this is commented in nvim-cmp too
-                        cmp.config.compare.exact,
-                        cmp.config.compare.score,
-                        cmp.config.compare.recently_used,
-                        cmp.config.compare.locality,
-                        cmp.config.compare.kind,
-                        cmp.config.compare.sort_text,
-                        cmp.config.compare.length,
-                        cmp.config.compare.order,
-                    },
                 },
             })
 
@@ -823,8 +872,9 @@ table.insert(plugins,
     {
         "zbirenbaum/copilot.lua",
     },
-    init = function()
-    end
+    config = function()
+        -- set up in the cmp setup
+    end,
 })
 
 table.insert(plugins,
@@ -846,6 +896,48 @@ table.insert(plugins,
             spectre.open_file_search()
         end)
     end
+})
+
+table.insert(plugins,
+{
+    "yamatsum/nvim-nonicons",
+    dependencies =
+    {
+        "kyazdani42/nvim-web-devicons",
+    },
+})
+
+table.insert(plugins,
+{
+    "jonahgoldwastaken/copilot-status.nvim",
+    dependencies =
+    {
+        "zbirenbaum/copilot.lua",
+        "yamatsum/nvim-nonicons",
+    },
+})
+
+table.insert(plugins,
+{
+    "nvim-lualine/lualine.nvim",
+    dependencies =
+    {
+        "jonahgoldwastaken/copilot-status.nvim",
+    },
+    config = function()
+        local copilotStatus = require("copilot_status")
+        require('lualine').setup({
+            sections =
+            {
+                lualine_x =
+                {
+                    function()
+                        return copilotStatus.status_string()
+                    end,
+                },
+            },
+        })
+    end,
 })
 
 require("lazy").setup(plugins);

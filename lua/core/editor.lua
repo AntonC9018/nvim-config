@@ -1,4 +1,4 @@
-vim.opt.guifont = "Consolas NF:h18"
+vim.opt.guifont = "SauceCodePro NF:h18"
 
 vim.opt.tabstop = 4
 vim.opt.shiftwidth = 4
