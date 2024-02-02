@@ -65,3 +65,6 @@ vim.keymap.set('n', 'wo', '<C-W>o',
 })
 vim.keymap.set('n', '<leader>*', helper.lastTextChange())
 
+-- Remap keys that my terminal sends differently back.
+vim.keymap.set("n", "<C-/>", helper.controlSlash(), { remap = true })
+vim.keymap.set("n", "<Tab>", helper.tab(), { remap = true })

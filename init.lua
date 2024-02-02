@@ -192,7 +192,7 @@ local plugins =
     },
     {
         "nvim-tree/nvim-tree.lua",
-        config = function(plugin)
+        config = function(_)
             local api = require("nvim-tree.api")
 
             local function onAttach(bufnr)
@@ -243,10 +243,14 @@ local plugins =
             })
 
             -- Explorer
-            helper.windowMap(
-            "e",
-            vim.cmd.NvimTreeOpen,
-            vim.cmd.NvimTreeToggle)
+            vim.keymap.set('n', 'we', function()
+                local tree = require('nvim-tree.api').tree
+                if tree.is_tree_buf(0) then
+                    tree.close()
+                else
+                    tree.open()
+                end
+            end)
         end
     },
     {
@@ -275,7 +279,7 @@ local plugins =
     },
     {
         'phaazon/hop.nvim',
-        config = function(plugin)
+        config = function(_)
             local hop = require("hop")
             hop.setup();
 
@@ -292,7 +296,7 @@ local plugins =
     },
     {
         'kylechui/nvim-surround',
-        config = function(plugin)
+        config = function(_)
             require("nvim-surround").setup(
             {
                 keymaps =
@@ -306,7 +310,7 @@ local plugins =
     {
         "folke/trouble.nvim",
         dependencies = { "nvim-tree/nvim-web-devicons" },
-        config = function(plugin)
+        config = function(_)
             require("trouble").setup({
                 position = "bottom",
                 icons = true,
@@ -407,7 +411,7 @@ local plugins =
         {
             "williamboman/mason.nvim"
         },
-        config = function(plugin)
+        config = function(_)
             local lspconfig = require('lspconfig')
 
             lspconfig.lua_ls.setup(
@@ -441,8 +445,7 @@ local plugins =
                         })
                         client.config.settings = settings
 
-                        client.notify(
-                        "workspace/didChangeConfiguration",
+                        client.notify("workspace/didChangeConfiguration",
                         {
                             settings = settings,
                         })
@@ -461,8 +464,6 @@ local plugins =
                     vim.bo[ev.buf].omnifunc = 'v:lua.vim.lsp.omnifunc'
 
                     local opts = { buffer = ev.buf }
-
-                    -- control-space does not work in Cmder
 
                     vim.keymap.set('n', 'gD', vim.lsp.buf.declaration, opts)
                     vim.keymap.set('n', 'gd', vim.lsp.buf.definition, opts)
@@ -533,8 +534,8 @@ local plugins =
 
             local exchange = require("substitute.exchange")
 
-            vim.keymap.set("n", "X", exchange.operator)
-            vim.keymap.set("n", "XX", exchange.line)
+            vim.keymap.set("n", "cx", exchange.operator)
+            vim.keymap.set("n", "cxx", exchange.line)
             vim.keymap.set("x", "X", exchange.visual)
             vim.keymap.set("n", "Xs", exchange.cancel)
         end,
@@ -575,6 +576,34 @@ local plugins =
                 { name = 'buffer' },
             })
 
+            local defaultMapping =
+            {
+                ['<C-j>'] = cmp.mapping.select_next_item(),
+                ['<C-k>'] = cmp.mapping.select_prev_item(),
+                [helper.tab()] = function(fallback)
+                    if not cmp.visible() then
+                        fallback()
+                        return
+                    end
+
+                    cmp.confirm({ select = true })
+                    cmp.close()
+                end,
+                ['<Esc>'] = function(fallback)
+                    if not cmp.visible() then
+                        fallback()
+                        return
+                    end
+
+                    cmp.abort()
+
+                    -- Only exit to normal mode if nothing was selected prior
+                    if cmp.get_active_entry() == nil then
+                        fallback()
+                    end
+                end,
+            }
+
             cmp.setup(
             {
                 snippet =
@@ -585,33 +614,7 @@ local plugins =
                 },
                 preselect_mode = cmp.PreselectMode.None,
                 autocomplete = true,
-                mapping = cmp.mapping.preset.insert(
-                {
-                    ['<C-j>'] = cmp.mapping.select_next_item(),
-                    ['<C-k>'] = cmp.mapping.select_prev_item(),
-                    [helper.tab()] = function(fallback)
-                        if not cmp.visible() then
-                            fallback()
-                            return
-                        end
-
-                        cmp.confirm({ select = true })
-                        cmp.close()
-                    end,
-                    ['<Esc>'] = function(fallback)
-                        if not cmp.visible() then
-                            fallback()
-                            return
-                        end
-
-                        cmp.abort()
-
-                        -- Only exit to normal mode if nothing was selected prior
-                        if cmp.get_active_entry() == nil then
-                            fallback()
-                        end
-                    end,
-                }),
+                mapping = helper.cmpNormalizeMappings(defaultMapping),
                 sources = defaultSources,
                 experimental =
                 {
@@ -653,7 +656,7 @@ local plugins =
 
             cmp.setup.cmdline({ '/', '?' },
             {
-                mapping = cmp.mapping.preset.cmdline(),
+                mapping = helper.cmpNormalizeMappings(defaultMapping, 'c'),
                 sources =
                 {
                     { name = 'buffer' },
@@ -662,7 +665,7 @@ local plugins =
 
             cmp.setup.cmdline(':',
             {
-                mapping = cmp.mapping.preset.cmdline(),
+                mapping = helper.cmpNormalizeMappings(defaultMapping, 'c'),
                 sources = cmp.config.sources(
                 {
                     { name = 'path' },
@@ -824,6 +827,25 @@ table.insert(plugins,
     end
 })
 
-
+table.insert(plugins,
+{
+    "nvim-pack/nvim-spectre",
+    dependencies =
+    {
+        "nvim-lua/plenary.nvim"
+    },
+    init = function()
+        local spectre = require("spectre")
+        vim.keymap.set('n', 'wr', function()
+            spectre.toggle()
+        end)
+        vim.keymap.set('v', 'wr', function()
+            spectre.open_visual()
+        end)
+        vim.keymap.set('n', '<leader>sr', function()
+            spectre.open_file_search()
+        end)
+    end
+})
 
 require("lazy").setup(plugins);

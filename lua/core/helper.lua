@@ -11,6 +11,11 @@ helper.tab = function()
     return "<C-i>"
 end
 
+-- Not actually supported in my terminal
+helper.controlSpace = function()
+    return "<C-Space>"
+end
+
 helper.lastTextChange = function()
     return '`[v`]'
 end
@@ -20,7 +25,7 @@ helper.modifyKey = function(modifier, key)
 end
 
 --- Define mappings for alt key, command key, and meta key.
---- @param table
+--- @param table 
 helper.altMacBinding = function(table)
     local key = table.key
     if key == nil then
@@ -120,6 +125,20 @@ local function removePreviewFromCompleteOpt()
         end
         idx = idx + 1
     end
+end
+
+helper.cmpNormalizeMappings = function(unnormalizedMappings, targetMode)
+    -- from sources of cmp
+    local keymap = require('cmp.utils.keymap')
+    local result = {}
+    for k, v in pairs(unnormalizedMappings) do
+        if targetMode ~= nil then
+            v = { [targetMode] = v }
+        end
+        -- I have no idea what this does exactly
+        result[keymap.normalize(k)] = v
+    end
+    return result
 end
 
 return helper

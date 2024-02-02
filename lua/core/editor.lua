@@ -1,4 +1,4 @@
-vim.opt.guifont = "Consolas NF:h21"
+vim.opt.guifont = "Consolas NF:h18"
 
 vim.opt.tabstop = 4
 vim.opt.shiftwidth = 4
@@ -12,4 +12,3 @@ vim.o.mouse = 'a'
 vim.o.scrolloff = 5
 vim.o.relativenumber = true
 vim.o.number = true
-
