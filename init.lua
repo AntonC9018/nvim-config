@@ -55,7 +55,7 @@ local plugins =
                     additional_vim_regex_highlighting = false,
                 },
             })
-            vim.cmd(":silent TSUpdate");
+            -- vim.cmd(":silent TSUpdate");
         end,
     },
     {
@@ -179,15 +179,14 @@ local plugins =
             -- TODO: search and replace
             vim.keymap.set("n", "<leader>ss", builtin.lsp_workspace_symbols, {})
             vim.keymap.set("n", "<leader>sh", builtin.help_tags, {})
-            vim.keymap.set("n",
-            "<leader><leader>",
-            function()
+            vim.keymap.set("n", "<leader><leader>", function()
                 vim.cmd("Telescope cmdline")
             end, {})
             vim.keymap.set("n", "<leader>h<leader>", builtin.command_history, {})
             vim.keymap.set("n", "<leader>hf", builtin.search_history, {})
             vim.keymap.set("n", "<C-e>", builtin.buffers, {})
             vim.keymap.set("n", "<leader>sj", builtin.jumplist, {})
+            vim.keymap.set("n", "<leader>sk", builtin.keymaps, {})
             -- vim.keymap.set("n", "gs", builtin.treesitter, {})
         end,
     },
@@ -264,7 +263,7 @@ local plugins =
             'kevinhwang91/promise-async',
             'nvim-treesitter/nvim-treesitter',
         },
-        url = "git@github.com:AntonC9018/nvim-ufo.git",
+        url = "https://github.com/AntonC9018/nvim-ufo",
         branch = "ts-refactor",
         config = function()
             vim.o.foldlevel = 99
@@ -294,8 +293,14 @@ local plugins =
     {
         'kylechui/nvim-surround',
         config = function(plugin)
-            -- I'm fine with the defaults here.
-            require("nvim-surround").setup({})
+            require("nvim-surround").setup(
+            {
+                keymaps =
+                {
+                    insert = false,
+                    insert_line = false,
+                },
+            })
         end
     },
     {
@@ -457,22 +462,19 @@ local plugins =
 
                     local opts = { buffer = ev.buf }
 
-                    -- helper.windowMap(
-                    --     'd',
-                    --     vim.diagnostic.open_float,
-                    --     vim.diagnostic.hide,
-                    --     opts)
-                    vim.keymap.set({'i', "n"}, '<C-Space>', vim.lsp.omnifunc, opts)
+                    -- control-space does not work in Cmder
 
                     vim.keymap.set('n', 'gD', vim.lsp.buf.declaration, opts)
                     vim.keymap.set('n', 'gd', vim.lsp.buf.definition, opts)
-                    helper.altMacBinding({
+                    helper.altMacBinding(
+                    {
                         mode = { 'n', 'i' },
                         key = 'i',
                         action = vim.lsp.buf.hover,
                         opts = opts,
                     })
-                    helper.altMacBinding({
+                    helper.altMacBinding(
+                    {
                         mode = { 'n', 'i' },
                         key = 'u',
                         action = vim.lsp.buf.signature_help,
@@ -549,14 +551,34 @@ local plugins =
             'L3MON4D3/LuaSnip',
             'saadparwaiz1/cmp_luasnip',
             "petertriho/cmp-git",
+            "zbirenbaum/copilot-cmp",
         },
         config = function(_)
             -- Set up nvim-cmp.
             local cmp = require('cmp')
 
+            local defaultSources = cmp.config.sources(
+            {
+                { name = 'copilot' },
+                {
+                    name = "nvim_lsp",
+
+                    -- Disable snippets
+                    entry_filter = function(entry)
+                        local snippetKind = cmp.lsp.CompletionItemKind.Snippet
+                        local entryKind = entry:get_kind()
+                        return entryKind ~= snippetKind
+                    end
+                },
+            },
+            {
+                { name = 'buffer' },
+            })
+
             cmp.setup(
             {
-                snippet = {
+                snippet =
+                {
                     expand = function(args)
                         require('luasnip').lsp_expand(args.body)
                     end,
@@ -590,16 +612,30 @@ local plugins =
                         end
                     end,
                 }),
-                sources = cmp.config.sources(
-                {
-                    { name = 'nvim_lsp' },
-                },
-                {
-                    { name = 'buffer' },
-                }),
+                sources = defaultSources,
                 experimental =
                 {
                     ghost_test = true,
+                },
+                sorting =
+                {
+                    priority_weight = 2,
+                    comparators =
+                    {
+                        require("copilot_cmp.comparators").prioritize,
+
+                        -- Below is the default comparitor list and order for nvim-cmp
+                        cmp.config.compare.offset,
+                        -- cmp.config.compare.scopes, --this is commented in nvim-cmp too
+                        cmp.config.compare.exact,
+                        cmp.config.compare.score,
+                        cmp.config.compare.recently_used,
+                        cmp.config.compare.locality,
+                        cmp.config.compare.kind,
+                        cmp.config.compare.sort_text,
+                        cmp.config.compare.length,
+                        cmp.config.compare.order,
+                    },
                 },
             })
 
@@ -608,6 +644,7 @@ local plugins =
                 sources = cmp.config.sources(
                 {
                     { name = 'git' },
+                    { name = 'copilot' },
                 },
                 {
                     { name = 'buffer' },
@@ -743,9 +780,50 @@ table.insert(plugins,
 table.insert(plugins,
 {
     "loctvl842/monokai-pro.nvim",
+    dependencies =
+    {
+        "nvim-treesitter/nvim-treesitter",
+    },
     config = function(_)
-        require("monokai-pro").setup()
+        require("monokai-pro").setup(
+        {
+        })
+        vim.cmd("colorscheme monokai-pro")
     end
 })
+
+-- vim.g.copilot_enabled = false
+table.insert(plugins,
+{
+    "zbirenbaum/copilot.lua",
+    -- cmd = "Copilot",
+    -- event = "InsertEnter",
+    config = function()
+        require("copilot").setup(
+        {
+            panel =
+            {
+                enabled = false,
+            },
+            suggestion =
+            {
+                enabled = false,
+            },
+        })
+    end,
+})
+
+table.insert(plugins,
+{
+    "zbirenbaum/copilot-cmp",
+    dependencies =
+    {
+        "zbirenbaum/copilot.lua",
+    },
+    init = function()
+    end
+})
+
+
 
 require("lazy").setup(plugins);
