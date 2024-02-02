@@ -740,4 +740,12 @@ table.insert(plugins,
     end
 })
 
+table.insert(plugins,
+{
+    "loctvl842/monokai-pro.nvim",
+    config = function(_)
+        require("monokai-pro").setup()
+    end
+})
+
 require("lazy").setup(plugins);
