@@ -959,4 +959,12 @@ table.insert(plugins,
     end,
 })
 
+table.insert(plugins,
+{
+    "tpope/vim-fugitive",
+    init = function(_)
+        -- vim.keymap.set("n", 
+    end
+})
+
 require("lazy").setup(plugins);
