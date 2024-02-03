@@ -240,7 +240,7 @@ local plugins =
                 set('<2-LeftMouse>', api.node.open.edit)
             end
 
-            vim.g.loaded_netrw = 1
+            -- vim.g.loaded_netrw = 1
             vim.g.loaded_netrwPlugin = 1
 
             require("nvim-tree").setup(
@@ -966,5 +966,20 @@ table.insert(plugins,
         -- vim.keymap.set("n", 
     end
 })
+
+for _, name in ipairs({
+    "cedarbaum/fugitive-azure-devops.vim",
+    "tpope/vim-rhubarb",
+}) do
+
+    table.insert(plugins,
+    {
+        name,
+        dependencies =
+        {
+            "tpope/vim-fugitive",
+        },
+    })
+end
 
 require("lazy").setup(plugins);
