@@ -301,11 +301,10 @@ local plugins =
             local hop = require("hop")
             hop.setup();
 
-            local directions = require("hop.hint").HintDirection
             vim.keymap.set({ 'n', 'v' }, ';',
                 function()
                     hop.hint_char1({
-                        direction = directions.AFTER_CURSOR,
+                        direction = nil,
                         current_line_only = false,
                     })
                 end,
@@ -614,11 +613,12 @@ local plugins =
             local defaultMapping =
             {
                 ['<C-Space>'] = function(_)
+                    cmp.abort()
+
                     if not tryResetCompletionTarget('regular') then
                         return
                     end
 
-                    cmp.abort()
                     cmp.complete()
                 end,
                 ['<C-j>'] = cmp.mapping.select_next_item(),
@@ -633,12 +633,12 @@ local plugins =
                     cmp.close()
                 end,
                 ['<Esc>'] = function(fallback)
+                    cmp.abort()
+
                     if not cmp.visible() then
                         fallback()
                         return
                     end
-
-                    cmp.abort()
 
                     -- Only exit to normal mode if nothing was selected prior
                     if cmp.get_active_entry() == nil then
