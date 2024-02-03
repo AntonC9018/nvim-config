@@ -1,4 +1,7 @@
-vim.opt.guifont = "SauceCodePro NF:h18"
+local helper = require('core.helper')
+
+local defaultFontInfo = helper.getDefaultFontInfo()
+vim.opt.guifont = helper.setGuiFont(defaultFontInfo)
 
 vim.opt.tabstop = 4
 vim.opt.shiftwidth = 4

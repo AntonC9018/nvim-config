@@ -1,20 +1,41 @@
 local helper = {}
 
+helper.isCmderTerminal = function()
+    return os.getenv("CMDER_ROOT") ~= nil
+end
+
 helper.controlSlash = function()
     -- Some terminals can't send control-slash to apps
     -- (ConEmu can't, at the very least)
-    return "<C-_>"
+    if helper.isCmderTerminal() then
+        return "<C-_>"
+    else
+        return "<C-/>"
+    end
 end
 
 helper.tab = function()
-    -- Same here
-    return "<C-i>"
+    if helper.isCmderTerminal() then
+        -- Same here
+        return "<C-i>"
+    else
+        return "<Tab>"
+    end
 end
 
 -- Not actually supported in my terminal
 helper.controlSpace = function()
     return "<C-Space>"
 end
+
+helper.controlBackspace = function()
+    if helper.isCmderTerminal() then
+        return "<C-h>"
+    else
+        return "<C-BS>"
+    end
+end
+
 
 helper.lastTextChange = function()
     return '`[v`]'
@@ -139,6 +160,48 @@ helper.cmpNormalizeMappings = function(unnormalizedMappings, targetMode)
         result[keymap.normalize(k)] = v
     end
     return result
+end
+
+helper.getFontInfo = function()
+    local font = vim.o.guifont
+    if font == nil
+    then
+        return helper.getDefaultFontInfo()
+    end
+
+    local parts = vim.split(font, ":")
+    -- strip away the leading h
+    local heightString = string.sub(parts[2], 2)
+    local height = tonumber(heightString)
+    return
+    {
+        name = parts[1],
+        size = height,
+    }
+end
+
+helper.setGuiFont = function(fontInfo)
+    local result = fontInfo.name .. ":h" .. fontInfo.size
+    vim.o.guifont = result
+end
+
+helper.getDefaultFontInfo = function()
+    return
+    {
+        name = "SauceCodePro NF",
+        size = 16,
+    }
+end
+
+helper.updateCurrentFontSize = function(amount)
+    local currentFont = helper.getFontInfo()
+    local newSize = currentFont.size + amount
+    if newSize < 1
+    then
+        newSize = 1
+    end
+    currentFont.size = newSize
+    helper.setGuiFont(currentFont)
 end
 
 return helper

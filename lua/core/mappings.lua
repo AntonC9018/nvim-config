@@ -35,12 +35,7 @@ vim.keymap.set("v", "=", "=gv" .. helper.lastTextChange())
 
 -- Toggle highlight
 vim.keymap.set("n", "<leader>ht", function()
-    if (vim.v.hlsearch == 1)
-    then
-        vim.cmd.nohl()
-    else
-        vim.o.hls = 1
-    end
+    vim.o.hls = not vim.o.hls
 end)
 
 -- Word wrap
@@ -65,6 +60,18 @@ vim.keymap.set('n', 'wo', '<C-W>o',
 })
 vim.keymap.set('n', '<leader>*', helper.lastTextChange())
 
--- Remap keys that my terminal sends differently back.
-vim.keymap.set("n", "<C-/>", helper.controlSlash(), { remap = true })
-vim.keymap.set("n", "<Tab>", helper.tab(), { remap = true })
+-- Changing font size (this won't work in the terminal I think)
+vim.keymap.set("", "<C-->", function()
+    helper.updateCurrentFontSize(-1)
+end)
+vim.keymap.set("", "<C-=>", function()
+    helper.updateCurrentFontSize(1)
+end)
+
+-- Regular text editing commands
+vim.keymap.set({ "i", "c" }, helper.controlBackspace(), "<C-w>")
+vim.keymap.set({ "i", "c" }, "<C-del>", "<C-o>de")
+vim.keymap.set({ "i", "c" }, "<C-z>", "<C-o>u")
+vim.keymap.set({ "i", "c" }, "<C-y>", "<C-o><C-r>")
+
+vim.keymap.set("n", "<leader>wd", vim.cmd("let @*=getcwd()"))

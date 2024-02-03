@@ -42,7 +42,7 @@ local plugins =
                 highlight =
                 {
                     enabled = true,
-                    disable = function(lang, buf)
+                    disable = function(_, buf)
                         local max_filesize = 100 * 1024 -- 100 KB
                         local ok, stats = pcall(
                         vim.loop.fs_stat,
@@ -88,8 +88,8 @@ local plugins =
                     {
                         i =
                         {
-                            ["<C-n>"] = false,
-                            ["<C-p>"] = false,
+                            -- ["<C-n>"] = false,
+                            -- ["<C-p>"] = false,
                             ["<C-x>"] = false,
                             ["<C-v>"] = false,
                             ["<C-t>"] = false,
@@ -113,6 +113,8 @@ local plugins =
                             ["<Down>"] = actions.move_selection_next,
                             ["<Up>"] = actions.move_selection_previous,
                             ["<CR>"] = actions.select_default,
+                            ["<C-p>"] = require('telescope.actions').cycle_history_next,
+                            ["<C-n>"] = require('telescope.actions').cycle_history_prev,
                         },
                         n =
                         {
@@ -158,6 +160,20 @@ local plugins =
                             [helpKey] = actions.which_key,
                         },
                     },
+                    layout_strategy = 'horizontal',
+                    layout_config =
+                    {
+                        horizontal =
+                        {
+                            height = 0.999,
+                            preview_width = 0.6,
+                            preview_cutoff = 0,
+                            prompt_position = "top",
+                            width = 0.999,
+                        },
+                    },
+                    results_title = false,
+                    prompt_title = false,
                 },
             })
 
@@ -170,8 +186,7 @@ local plugins =
             end, {})
             vim.keymap.set("n", "<leader>sp", builtin.find_files, {})
             vim.keymap.set("n", "<leader>sP", builtin.oldfiles, {})
-            vim.keymap.set("n", "<leader>sf",
-            function()
+            vim.keymap.set("n", "<leader>sf", function()
                 builtin.live_grep({
                     grep_open_files = false
                 })
@@ -187,7 +202,9 @@ local plugins =
             vim.keymap.set("n", "<C-e>", builtin.buffers, {})
             vim.keymap.set("n", "<leader>sj", builtin.jumplist, {})
             vim.keymap.set("n", "<leader>sk", builtin.keymaps, {})
-            -- vim.keymap.set("n", "gs", builtin.treesitter, {})
+            vim.keymap.set("n", "<leader>sd", builtin.diagnostics, {})
+            vim.keymap.set("n", "gs", builtin.treesitter, {})
+            vim.keymap.set("n", "<leader>sy", vim.cmd("Telescope resume"))
         end,
     },
     {
@@ -240,6 +257,7 @@ local plugins =
                 {
                     dotfiles = true,
                 },
+                sync_root_with_cwd = true,
             })
 
             -- Explorer
@@ -335,7 +353,7 @@ local plugins =
                     toggle_fold = "L",
                     previous = "k",
                     next = "j",
-                    help = "<C-/>",
+                    help = helper.controlSlash(),
                 },
                 multiline = true,
                 indent_lines = true,
@@ -352,11 +370,11 @@ local plugins =
                 },
                 signs =
                 {
-                    error = "!",
-                    warning = "?",
-                    hint = "$",
-                    information = "i",
-                    other = "*",
+                    error = "",
+                    warning = "",
+                    hint = "",
+                    information = "",
+                    other = "",
                 },
                 use_diagnostic_signs = false,
             })
@@ -454,9 +472,6 @@ local plugins =
                 end
             })
 
-            vim.keymap.set('n', 'gE', vim.diagnostic.goto_prev)
-            vim.keymap.set('n', 'ge', vim.diagnostic.goto_next)
-
             vim.api.nvim_create_autocmd('LspAttach',
             {
                 group = vim.api.nvim_create_augroup('UserLspConfig', {}),
@@ -464,6 +479,9 @@ local plugins =
                     vim.bo[ev.buf].omnifunc = 'v:lua.vim.lsp.omnifunc'
 
                     local opts = { buffer = ev.buf }
+
+                    vim.keymap.set('n', 'gE', vim.diagnostic.goto_prev)
+                    vim.keymap.set('n', 'ge', vim.diagnostic.goto_next)
 
                     vim.keymap.set('n', 'gD', vim.lsp.buf.declaration, opts)
                     vim.keymap.set('n', 'gd', vim.lsp.buf.definition, opts)
@@ -783,6 +801,7 @@ table.insert(plugins,
 
 -- This thing is just not going to work.
 -- It works only for builtin commands, not for regular mappings.
+---@diagnostic disable-next-line: unused-function, unused-local
 local function registerLangmaps()
     local langmaps =
     {
