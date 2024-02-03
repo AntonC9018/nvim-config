@@ -162,11 +162,11 @@ helper.cmpNormalizeMappings = function(unnormalizedMappings, targetMode)
     return result
 end
 
-helper.getFontInfo = function()
+helper.fontInfo = function()
     local font = vim.o.guifont
     if font == nil
     then
-        return helper.getDefaultFontInfo()
+        return helper.defaultFontInfo()
     end
 
     local parts = vim.split(font, ":")
@@ -185,7 +185,7 @@ helper.setGuiFont = function(fontInfo)
     vim.o.guifont = result
 end
 
-helper.getDefaultFontInfo = function()
+helper.defaultFontInfo = function()
     return
     {
         name = "SauceCodePro NF",
@@ -194,7 +194,7 @@ helper.getDefaultFontInfo = function()
 end
 
 helper.updateCurrentFontSize = function(amount)
-    local currentFont = helper.getFontInfo()
+    local currentFont = helper.fontInfo()
     local newSize = currentFont.size + amount
     if newSize < 1
     then

@@ -71,7 +71,7 @@ end)
 -- Regular text editing commands
 vim.keymap.set({ "i", "c" }, helper.controlBackspace(), "<C-w>")
 vim.keymap.set({ "i", "c" }, "<C-del>", "<C-o>de")
-vim.keymap.set({ "i", "c" }, "<C-z>", "<C-o>u")
-vim.keymap.set({ "i", "c" }, "<C-y>", "<C-o><C-r>")
+vim.keymap.set({ "i" }, "<C-z>", "<C-o>u")
+vim.keymap.set({ "i" }, "<C-y>", "<C-o><C-r>")
 
 vim.keymap.set("n", "<leader>wd", vim.cmd("let @*=getcwd()"))
