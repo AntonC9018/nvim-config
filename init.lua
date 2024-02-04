@@ -840,12 +840,37 @@ local function registerLangmaps()
     -- vim.o.langremap = false
 end
 
+local function setupRomanianKeyMaps()
+    local utf8 = require('lua-utf8')
+    -- Register binings to romanian letters
+    local keys = { '[', ']', '\\', ';', '\'' }
+    local letters = { 'ă', 'î', 'â', 'ș', 'ț' }
+    local t = { mode = { 'i', 'c' } }
+    for i, key in ipairs(keys) do
+        t.key = key
+        do
+            local letter = letters[i]
+            t.action = letter
+            helper.altMacBinding(t)
+        end
+        do
+            local capitalLetter = utf8.upper(letters[i])
+            t.action = capitalLetter
+            helper.altMacBinding(t)
+        end
+    end
+end
+
 table.insert(plugins,
 {
-    'uga-rosa/utf8.nvim',
-    config = function(_)
-        -- registerLangmaps()
-    end
+    "theHamsta/nvim_rocks",
+    build = "pip3 install --user hererocks && python3 -mhererocks . -j2.1.0-beta3 -r3.0.0 && cp nvim_rocks.lua lua",
+    config = function()
+        local nvim_rocks = require("nvim_rocks")
+        nvim_rocks.ensure_installed("luautf8")
+
+        setupRomanianKeyMaps()
+    end,
 })
 
 table.insert(plugins,
