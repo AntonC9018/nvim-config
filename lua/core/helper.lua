@@ -149,15 +149,12 @@ local function removePreviewFromCompleteOpt()
 end
 
 helper.cmpNormalizeMappings = function(unnormalizedMappings, targetMode)
-    -- from sources of cmp
-    local keymap = require('cmp.utils.keymap')
     local result = {}
     for k, v in pairs(unnormalizedMappings) do
         if targetMode ~= nil then
             v = { [targetMode] = v }
         end
-        -- I have no idea what this does exactly
-        result[keymap.normalize(k)] = v
+        result[k] = v
     end
     return result
 end

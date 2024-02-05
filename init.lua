@@ -1,4 +1,4 @@
-require("core.editor")
+    require("core.editor")
 require("core.mappings")
 local helper = require("core.helper")
 
@@ -638,9 +638,9 @@ local plugins =
             {
                 ['<C-Space>'] = function(_)
                     local isRegular = tryResetCompletionTarget('regular')
-                    cmp.abort()
 
                     if not isRegular then
+                        cmp.abort()
                         return
                     end
 
@@ -658,12 +658,12 @@ local plugins =
                     cmp.close()
                 end,
                 ['<Esc>'] = function(fallback)
-                    cmp.abort()
-
                     if not cmp.visible() then
                         fallback()
                         return
                     end
+
+                    cmp.abort()
 
                     -- Only exit to normal mode if nothing was selected prior
                     if cmp.get_active_entry() == nil then
