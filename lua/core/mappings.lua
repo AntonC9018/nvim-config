@@ -75,3 +75,38 @@ vim.keymap.set({ "i" }, "<C-z>", "<C-o>u")
 vim.keymap.set({ "i" }, "<C-y>", "<C-o><C-r>")
 
 vim.keymap.set("n", "<leader>wd", vim.cmd("let @*=getcwd()"))
+
+local function registerRomanianKeys()
+    -- Register binings to romanian letters
+    local keys = { '[', ']', '\\', ';', '\'' }
+    local letters = { 'ă', 'î', 'â', 'ș', 'ț' }
+    -- I wanted to derive these automatically from the lowercase letters.
+    -- For that we need to be able to uppercase UTF-8 characters.
+    -- For that we need either to implement it manually,
+    -- which I don't want to do, or use a library.
+    -- I've tried to include a few libraries using lazy, but that didn't work,
+    -- because they're regular libraries and not plugins and are structured
+    -- in a different way from what lazy expects.
+    -- So I need to include the packages in a regular way.
+    -- That means either a git submodule, which won't 
+    -- work for packages that compile C btw, or a luarocks package.
+    -- There's no plugin that helps with luarocks packages that works on Windows,
+    -- and writing one manually is a challenge for me right now.
+    local capitalKeys = { '{', '}', '|', ':', '"' }
+    local capitalLetters = { 'Ă', 'Î', 'Â', 'Ș', 'Ț' }
+    local t = { mode = { 'i', 'c' } }
+
+    for i, key in ipairs(keys) do
+        t.key = key
+        t.action = letters[i]
+        helper.altMacBinding(t)
+    end
+
+    for i, key in ipairs(capitalKeys) do
+        t.key = key
+        t.action = capitalLetters[i]
+        helper.altMacBinding(t)
+    end
+end
+
+registerRomanianKeys()
