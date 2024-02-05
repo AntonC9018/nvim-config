@@ -165,6 +165,8 @@ local plugins =
                             [helpKey] = actions.which_key,
                         },
                     },
+                    selection_caret = '',
+                    prompt_prefix = '',
                     layout_strategy = 'horizontal',
                     layout_config =
                     {
@@ -173,7 +175,6 @@ local plugins =
                             height = 0.999,
                             preview_width = 0.6,
                             preview_cutoff = 0,
-                            prompt_position = "top",
                             width = 0.999,
                         },
                     },
@@ -208,7 +209,10 @@ local plugins =
             vim.keymap.set("n", "<leader>sj", builtin.jumplist, {})
             vim.keymap.set("n", "<leader>sk", builtin.keymaps, {})
             vim.keymap.set("n", "<leader>sd", builtin.diagnostics, {})
-            vim.keymap.set("n", "gs", builtin.treesitter, {})
+            vim.keymap.set("n", "gu", builtin.lsp_references, opts)
+            vim.keymap.set("n", "gi", builtin.lsp_implementations, opts)
+            vim.keymap.set("n", "gt", builtin.lsp_definitions, opts)
+            vim.keymap.set("n", "gs", builtin.lsp_document_symbols, {})
             vim.keymap.set("n", "<leader>sy", function()
                 vim.cmd("Telescope resume")
             end)
@@ -495,6 +499,13 @@ local plugins =
                 end
             })
 
+            lspconfig.zls.setup(
+            {
+                on_init = function(_)
+                    vim.g.zig_fmt_autosave = false
+                end
+            })
+
             vim.api.nvim_create_autocmd('LspAttach',
             {
                 group = vim.api.nvim_create_augroup('UserLspConfig', {}),
@@ -522,11 +533,8 @@ local plugins =
                         action = vim.lsp.buf.signature_help,
                         opts = opts,
                     })
-                    vim.keymap.set('n', 'gi', vim.lsp.buf.implementation, opts)
-                    vim.keymap.set('n', 'gt', vim.lsp.buf.type_definition, opts)
                     vim.keymap.set('n', '<F2>', vim.lsp.buf.rename, opts)
                     vim.keymap.set({ 'n', 'v' }, '<C-.>', vim.lsp.buf.code_action, opts)
-                    vim.keymap.set('n', 'gu', vim.lsp.buf.references, opts)
                     vim.keymap.set({ 'n', 'v' }, '<space>ref', function()
                         vim.lsp.buf.format { async = true }
                     end, opts)

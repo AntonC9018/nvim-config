@@ -1,10 +1,10 @@
 local helper = {}
 
-helper.isCmderTerminal = function()
+function helper.isCmderTerminal()
     return os.getenv("CMDER_ROOT") ~= nil
 end
 
-helper.controlSlash = function()
+function helper.controlSlash()
     -- Some terminals can't send control-slash to apps
     -- (ConEmu can't, at the very least)
     if helper.isCmderTerminal() then
@@ -14,7 +14,7 @@ helper.controlSlash = function()
     end
 end
 
-helper.tab = function()
+function helper.tab()
     if helper.isCmderTerminal() then
         -- Same here
         return "<C-i>"
@@ -24,11 +24,11 @@ helper.tab = function()
 end
 
 -- Not actually supported in my terminal
-helper.controlSpace = function()
+function helper.controlSpace()
     return "<C-Space>"
 end
 
-helper.controlBackspace = function()
+function helper.controlBackspace()
     if helper.isCmderTerminal() then
         return "<C-h>"
     else
@@ -37,11 +37,11 @@ helper.controlBackspace = function()
 end
 
 
-helper.lastTextChange = function()
+function helper.lastTextChange()
     return '`[v`]'
 end
 
-helper.modifyKey = function(modifier, key)
+function helper.modifyKey(modifier, key)
     return "<" .. modifier .. "-" .. key .. ">"
 end
 
@@ -148,7 +148,7 @@ local function removePreviewFromCompleteOpt()
     end
 end
 
-helper.cmpNormalizeMappings = function(unnormalizedMappings, targetMode)
+function helper.cmpNormalizeMappings(unnormalizedMappings, targetMode)
     local result = {}
     for k, v in pairs(unnormalizedMappings) do
         if targetMode ~= nil then
@@ -159,7 +159,7 @@ helper.cmpNormalizeMappings = function(unnormalizedMappings, targetMode)
     return result
 end
 
-helper.fontInfo = function()
+function helper.fontInfo()
     local font = vim.o.guifont
     if font == nil
     then
@@ -177,12 +177,12 @@ helper.fontInfo = function()
     }
 end
 
-helper.setGuiFont = function(fontInfo)
+function helper.setGuiFont(fontInfo)
     local result = fontInfo.name .. ":h" .. fontInfo.size
     vim.o.guifont = result
 end
 
-helper.defaultFontInfo = function()
+function helper.defaultFontInfo()
     return
     {
         name = "SauceCodePro NF",
@@ -190,7 +190,7 @@ helper.defaultFontInfo = function()
     }
 end
 
-helper.updateCurrentFontSize = function(amount)
+function helper.updateCurrentFontSize(amount)
     local currentFont = helper.fontInfo()
     local newSize = currentFont.size + amount
     if newSize < 1
