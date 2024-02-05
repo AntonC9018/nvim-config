@@ -749,6 +749,8 @@ local plugins =
                 })
             })
 
+            -- Required hack to fix the issue
+            -- https://github.com/hrsh7th/nvim-cmp/issues/1814
             local escKey = vim.api.nvim_replace_termcodes('<C-c>', true, false, true)
 
             local defaultMappingsC = vim.tbl_deep_extend(
@@ -1002,8 +1004,10 @@ table.insert(plugins,
     },
     config = function()
         local copilotStatus = require("copilot_status")
+
         require('lualine').setup({
-            options = {
+            options =
+            {
                 component_separators = {'', ''},
             },
             sections =
