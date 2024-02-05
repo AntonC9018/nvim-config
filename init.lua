@@ -1,24 +1,28 @@
 require("core.editor")
 require("core.mappings")
 local helper = require("core.helper")
-local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
-if not vim.loop.fs_stat(lazypath) then
-    vim.fn.system({
-        "git",
-        "clone",
-        "--filter=blob:none",
-        "https://github.com/folke/lazy.nvim.git",
-        "--branch=stable",
-        lazypath,
-    })
+
+do
+    local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
+    if not vim.loop.fs_stat(lazypath) then
+        vim.fn.system({
+            "git",
+            "clone",
+            "--filter=blob:none",
+            "https://github.com/folke/lazy.nvim.git",
+            "--branch=stable",
+            lazypath,
+        })
+    end
+    vim.opt.rtp:prepend(lazypath)
 end
-vim.opt.rtp:prepend(lazypath)
 
 local plugins =
 {
     {
         "nvim-treesitter/nvim-treesitter",
         config = function()
+            ---@diagnostic disable-next-line: missing-parameter
             require("nvim-treesitter").setup(
             {
                 ensure_installed =
@@ -81,6 +85,7 @@ local plugins =
             local actions = require("telescope.actions")
             local helpKey = "<F1>"
 
+            ---@diagnostic disable-next-line: missing-parameter
             require("telescope").setup({
                 defaults =
                 {
@@ -204,7 +209,9 @@ local plugins =
             vim.keymap.set("n", "<leader>sk", builtin.keymaps, {})
             vim.keymap.set("n", "<leader>sd", builtin.diagnostics, {})
             vim.keymap.set("n", "gs", builtin.treesitter, {})
-            vim.keymap.set("n", "<leader>sy", vim.cmd("Telescope resume"))
+            vim.keymap.set("n", "<leader>sy", function()
+                vim.cmd("Telescope resume")
+            end)
         end,
     },
     {
@@ -315,6 +322,7 @@ local plugins =
         'kylechui/nvim-surround',
         config = function(_)
             require("nvim-surround").setup(
+            ---@diagnostic disable-next-line: missing-fields
             {
                 keymaps =
                 {
@@ -426,7 +434,7 @@ local plugins =
         "neovim/nvim-lspconfig",
         dependencies =
         {
-            "williamboman/mason.nvim"
+            "williamboman/mason.nvim",
         },
         config = function(_)
             local lspconfig = require('lspconfig')
@@ -440,6 +448,23 @@ local plugins =
                         not vim.loop.fs_stat(path .. '/.luarc.json')
                         and not vim.loop.fs_stat(path .. '/.luarc.jsonc')
                     then
+                        local lazyConfig = require("lazy.core.config")
+                        local lazyPath = lazyConfig.options.root;
+
+                        local libraries =
+                        {
+                            vim.env.VIMRUNTIME,
+                            lazyPath,
+                        }
+
+                        local lazy = require("lazy")
+                        local plugins = lazy.plugins()
+                        for _, plugin in ipairs(plugins) do
+                            table.insert(libraries, plugin.dir)
+                        end
+
+                        -- TODO: figure out autocommands to modify this list dynamically.
+
                         local settings = vim.tbl_deep_extend(
                             'force',
                             client.config.settings,
@@ -453,14 +478,13 @@ local plugins =
                                     workspace =
                                     {
                                         checkThirdParty = false,
-                                        library =
-                                        {
-                                            vim.env.VIMRUNTIME,
-                                        },
+                                        library = libraries,
                                     },
                                 },
                             })
                         client.config.settings = settings
+
+                        -- wtach the lazy directory with plugins
 
                         client.notify("workspace/didChangeConfiguration",
                         {
@@ -587,7 +611,7 @@ local plugins =
                         local snippetKind = cmp.lsp.CompletionItemKind.Snippet
                         local entryKind = entry:get_kind()
                         return entryKind ~= snippetKind
-                    end
+                    end,
                 },
             },
             {
@@ -613,9 +637,10 @@ local plugins =
             local defaultMapping =
             {
                 ['<C-Space>'] = function(_)
+                    local isRegular = tryResetCompletionTarget('regular')
                     cmp.abort()
 
-                    if not tryResetCompletionTarget('regular') then
+                    if not isRegular then
                         return
                     end
 
@@ -668,6 +693,7 @@ local plugins =
                 },
             }
 
+            ---@diagnostic disable-next-line: missing-parameter
             cmp.setup(
             {
                 snippet =
@@ -683,10 +709,11 @@ local plugins =
                     defaultMapping,
                     {
                         ["<C-\\>"] = function(_)
-                            if not tryResetCompletionTarget('copilot') then
+                            local isCopilot = tryResetCompletionTarget('copilot')
+                            cmp.abort()
+                            if not isCopilot then
                                 return
                             end
-                            cmp.abort()
                             cmp.complete(
                             {
                                 config =
@@ -709,6 +736,7 @@ local plugins =
                 },
             })
 
+            ---@diagnostic disable-next-line: undefined-field
             cmp.setup.filetype('gitcommit',
             {
                 sources = cmp.config.sources(
@@ -721,6 +749,7 @@ local plugins =
                 })
             })
 
+            ---@diagnostic disable-next-line: undefined-field
             cmp.setup.cmdline({ '/', '?' },
             {
                 mapping = helper.cmpNormalizeMappings(defaultMapping, 'c'),
@@ -730,6 +759,7 @@ local plugins =
                 },
             })
 
+            ---@diagnostic disable-next-line: undefined-field
             cmp.setup.cmdline(':',
             {
                 mapping = helper.cmpNormalizeMappings(defaultMapping, 'c'),
@@ -942,14 +972,32 @@ table.insert(plugins,
     dependencies =
     {
         "jonahgoldwastaken/copilot-status.nvim",
+        "arkav/lualine-lsp-progress",
     },
     config = function()
         local copilotStatus = require("copilot_status")
         require('lualine').setup({
+            options = {
+                component_separators = {'', ''},
+            },
             sections =
             {
+                lualine_a =
+                {
+                    'mode'
+                },
+                lualine_b =
+                {
+                    'branch',
+                },
+                lualine_c =
+                {
+                    'lsp_progress'
+                },
                 lualine_x =
                 {
+                    'filename',
+                    'encoding',
                     function()
                         return copilotStatus.status_string()
                     end,
@@ -963,6 +1011,9 @@ table.insert(plugins,
 {
     "tpope/vim-fugitive",
     init = function(_)
+        vim.keymap.set({ 'n', 'v' }, '<leader>go', ':GBrowse<CR>')
+        vim.keymap.set('n', '<leader>gbl', ':Git blame<CR>')
+        vim.keymap.set('n', '<leader>gd', ':Gvdiffsplit<CR>')
     end
 })
 
