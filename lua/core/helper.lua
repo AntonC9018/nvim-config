@@ -204,4 +204,26 @@ helper.updateCurrentFontSize = function(amount)
     helper.setGuiFont(currentFont)
 end
 
+helper.setupRomanianKeyMaps = function()
+    local utf8 = require('lua-utf8')
+    -- Register binings to romanian letters
+    local keys = { '[', ']', '\\', ';', '\'' }
+    local letters = { 'ă', 'î', 'â', 'ș', 'ț' }
+    local t = { mode = { 'i', 'c' } }
+    for i, key in ipairs(keys) do
+        t.key = key
+        do
+            local letter = letters[i]
+            t.action = letter
+            helper.altMacBinding(t)
+        end
+        do
+            local capitalLetter = utf8.upper(letters[i])
+            t.action = capitalLetter
+            helper.altMacBinding(t)
+        end
+    end
+end
+
+
 return helper

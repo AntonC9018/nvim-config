@@ -1,18 +1,96 @@
 require("core.editor")
 require("core.mappings")
 local helper = require("core.helper")
-local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
-if not vim.loop.fs_stat(lazypath) then
-    vim.fn.system({
-        "git",
-        "clone",
-        "--filter=blob:none",
-        "https://github.com/folke/lazy.nvim.git",
-        "--branch=stable",
-        lazypath,
-    })
+
+local function installLazy()
+    local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
+    if not vim.loop.fs_stat(lazypath) then
+        vim.fn.system({
+            "git",
+            "clone",
+            "--filter=blob:none",
+            "https://github.com/folke/lazy.nvim.git",
+            "--branch=stable",
+            lazypath,
+        })
+    end
+    vim.opt.rtp:prepend(lazypath)
 end
-vim.opt.rtp:prepend(lazypath)
+
+installLazy()
+
+local function installLuarocks()
+    local luarocksPath = vim.fn.stdpath("data") .. "/luarocks"
+    local function luarocksExists()
+        return vim.fn.executable('luarocks') == 1
+    end
+    local luarocksDirectory = vim.loop.fs_stat(luarocksPath)
+    local tempBufferNumber = -1
+
+    local function executeWithOutput(command)
+        local handle = assert(io.popen(command, 'r'))
+        -- asynchronously write to the temp file
+        vim.loop.new_async(vim.schedule_wrap(function()
+            local output = handle:read('*a')
+            handle:close()
+
+            if output ~= '' then
+               if tempBufferNumber == -1 then
+                    -- open a new nvim buffer for the output
+                   local listed = false
+                   local scratch = true
+                   tempBufferNumber = vim.api.nvim_create_buf(listed, scratch)
+               end
+
+               vim.api.nvim_buf_set_option(tempBufferNumber, "readonly", false)
+               vim.api.nvim_buf_set_lines(tempBufferNumber, -1, -1, false, { output })
+               vim.api.nvim_buf_set_option(tempBufferNumber, "readonly", true)
+               vim.api.nvim_buf_set_option(tempBufferNumber, "modified", false)
+            end
+        end)):send()
+    end
+
+    if not luarocksExists() and luarocksDirectory == nil then
+        local installHererocksCommand = 'pip3 install --user git+https://github.com/luarocks/hererocks';
+        local installLuarocksCommand = string.format(
+            'python3 -m hererocks %s --luajit %s --luarocks %s',
+            vim.fn.shellescape(luarocksPath),
+            '2.1',
+            '3.0.0')
+        local wholeCommand = installHererocksCommand .. ' && ' .. installLuarocksCommand
+
+        print('Running command: ' .. wholeCommand)
+
+
+    end
+
+    vim.opt.rtp:prepend(luarocksPath .. '/bin')
+
+    if not luarocksExists() then
+        -- delete the luarocks directory
+        if luarocksDirectory ~= nil then
+            vim.loop.fs_rmdir(luarocksDirectory)
+        end
+
+        print("Installation of luarocks failed for some reason, ig?")
+        return
+    end
+
+    -- luarocks packages directory
+    local luarocksPackagesPath = vim.fn.stdpath("data") .. "luarocks_packages"
+
+    local packages = { 'luautf8' }
+    local workingDirectory = luarocksPackagesPath
+    local dir = vim.loop.fs_opendir(workingDirectory)
+    local installedPackages = vim.loop.fs_readdir(dir)
+    print(vim.inspect(installedPackages))
+end
+do
+    local code, err = pcall(installLuarocks)
+    if err then
+        print(err)
+    end
+end
 
 local plugins =
 {
@@ -204,7 +282,7 @@ local plugins =
             vim.keymap.set("n", "<leader>sk", builtin.keymaps, {})
             vim.keymap.set("n", "<leader>sd", builtin.diagnostics, {})
             vim.keymap.set("n", "gs", builtin.treesitter, {})
-            vim.keymap.set("n", "<leader>sy", vim.cmd("Telescope resume"))
+            vim.keymap.set("n", "<leader>sy", builtin.resume)
         end,
     },
     {
@@ -839,39 +917,6 @@ local function registerLangmaps()
     vim.o.langmap = completeLangmap
     -- vim.o.langremap = false
 end
-
-local function setupRomanianKeyMaps()
-    local utf8 = require('lua-utf8')
-    -- Register binings to romanian letters
-    local keys = { '[', ']', '\\', ';', '\'' }
-    local letters = { 'ă', 'î', 'â', 'ș', 'ț' }
-    local t = { mode = { 'i', 'c' } }
-    for i, key in ipairs(keys) do
-        t.key = key
-        do
-            local letter = letters[i]
-            t.action = letter
-            helper.altMacBinding(t)
-        end
-        do
-            local capitalLetter = utf8.upper(letters[i])
-            t.action = capitalLetter
-            helper.altMacBinding(t)
-        end
-    end
-end
-
-table.insert(plugins,
-{
-    "theHamsta/nvim_rocks",
-    build = "pip3 install --user hererocks && python3 -mhererocks . -j2.1.0-beta3 -r3.0.0 && cp nvim_rocks.lua lua",
-    config = function()
-        local nvim_rocks = require("nvim_rocks")
-        nvim_rocks.ensure_installed("luautf8")
-
-        setupRomanianKeyMaps()
-    end,
-})
 
 table.insert(plugins,
 {
