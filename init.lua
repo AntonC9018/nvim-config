@@ -1,4 +1,4 @@
-    require("core.editor")
+require("core.editor")
 require("core.mappings")
 local helper = require("core.helper")
 
@@ -657,19 +657,6 @@ local plugins =
                     cmp.confirm({ select = true })
                     cmp.close()
                 end,
-                ['<Esc>'] = function(fallback)
-                    if not cmp.visible() then
-                        fallback()
-                        return
-                    end
-
-                    cmp.abort()
-
-                    -- Only exit to normal mode if nothing was selected prior
-                    if cmp.get_active_entry() == nil then
-                        fallback()
-                    end
-                end,
             }
 
             local defaultSorting =
@@ -727,6 +714,19 @@ local plugins =
                                 },
                             })
                         end,
+                        ['<Esc>'] = function(fallback)
+                            if not cmp.visible() then
+                                fallback()
+                                return
+                            end
+
+                            cmp.abort()
+
+                            -- Only exit to normal mode if nothing was selected prior
+                            if cmp.get_active_entry() == nil then
+                                fallback()
+                            end
+                        end,
                     }),
                 sources = defaultSources,
                 sorting = defaultSorting,
@@ -749,10 +749,36 @@ local plugins =
                 })
             })
 
+            local escKey = vim.api.nvim_replace_termcodes('<C-c>', true, false, true)
+
+            local defaultMappingsC = vim.tbl_deep_extend(
+                "error",
+                defaultMapping,
+                {
+                    ['<Esc>'] = function()
+                        local function sendEsc()
+                            vim.api.nvim_feedkeys(escKey, 'n', false)
+                        end
+
+                        if not cmp.visible() then
+                            sendEsc()
+                            return
+                        end
+
+                        cmp.abort()
+
+                        -- Only exit to normal mode if nothing was selected prior
+                        if cmp.get_active_entry() == nil then
+                            sendEsc()
+                        end
+                    end,
+                })
+            local cmdlineMappings = helper.cmpNormalizeMappings(defaultMappingsC, 'c')
+
             ---@diagnostic disable-next-line: undefined-field
             cmp.setup.cmdline({ '/', '?' },
             {
-                mapping = helper.cmpNormalizeMappings(defaultMapping, 'c'),
+                mapping = cmdlineMappings,
                 sources =
                 {
                     { name = 'buffer' },
@@ -762,7 +788,7 @@ local plugins =
             ---@diagnostic disable-next-line: undefined-field
             cmp.setup.cmdline(':',
             {
-                mapping = helper.cmpNormalizeMappings(defaultMapping, 'c'),
+                mapping = cmdlineMappings,
                 sources = cmp.config.sources(
                 {
                     { name = 'path' },
