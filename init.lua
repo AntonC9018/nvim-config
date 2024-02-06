@@ -221,7 +221,6 @@ local plugins =
     },
     {
         "nvim-tree/nvim-tree.lua",
-        enabled = false,
         config = function(_)
             local api = require("nvim-tree.api")
 
