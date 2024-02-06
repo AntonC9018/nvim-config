@@ -17,3 +17,6 @@ vim.o.relativenumber = true
 vim.o.number = true
 
 vim.o.timeoutlen = 8000
+
+-- https://stackoverflow.com/questions/36500099/vim-gf-should-open-file-and-jump-to-line
+vim.cmd("set isfname-=:")

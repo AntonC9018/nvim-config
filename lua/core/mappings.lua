@@ -74,7 +74,9 @@ vim.keymap.set({ "i", "c" }, "<C-del>", "<C-o>de")
 vim.keymap.set({ "i" }, "<C-z>", "<C-o>u")
 vim.keymap.set({ "i" }, "<C-y>", "<C-o><C-r>")
 
-vim.keymap.set("n", "<leader>wd", vim.cmd("let @*=getcwd()"))
+vim.keymap.set("n", "<leader>wd", function()
+    vim.cmd("let @*=getcwd()")
+end)
 
 local function registerRomanianKeys()
     -- Register binings to romanian letters
