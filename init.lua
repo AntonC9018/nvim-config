@@ -210,9 +210,10 @@ local plugins =
             vim.keymap.set("n", "<leader>sj", builtin.jumplist, {})
             vim.keymap.set("n", "<leader>sk", builtin.keymaps, {})
             vim.keymap.set("n", "<leader>sd", builtin.diagnostics, {})
-            vim.keymap.set("n", "gu", builtin.lsp_references, opts)
-            vim.keymap.set("n", "gi", builtin.lsp_implementations, opts)
-            vim.keymap.set("n", "gt", builtin.lsp_definitions, opts)
+            vim.keymap.set("n", "gu", builtin.lsp_references, {})
+            vim.keymap.set("n", "gi", builtin.lsp_implementations, {})
+            vim.keymap.set("n", "gt", builtin.lsp_type_definitions, {})
+            vim.keymap.set('n', 'gd', builtin.lsp_definitions, {})
             vim.keymap.set("n", "gs", builtin.lsp_document_symbols, {})
             vim.keymap.set("n", "<leader>sy", function()
                 vim.cmd("Telescope resume")
@@ -507,6 +508,14 @@ local plugins =
                 end
             })
 
+            lspconfig.clangd.setup(
+            {
+                capabilities =
+                {
+                    offsetEncoding = "utf-8",
+                },
+            })
+
             vim.api.nvim_create_autocmd('LspAttach',
             {
                 group = vim.api.nvim_create_augroup('UserLspConfig', {}),
@@ -517,9 +526,7 @@ local plugins =
 
                     vim.keymap.set('n', 'gE', vim.diagnostic.goto_prev)
                     vim.keymap.set('n', 'ge', vim.diagnostic.goto_next)
-
                     vim.keymap.set('n', 'gD', vim.lsp.buf.declaration, opts)
-                    vim.keymap.set('n', 'gd', vim.lsp.buf.definition, opts)
                     helper.altMacBinding(
                     {
                         mode = { 'n', 'i' },
