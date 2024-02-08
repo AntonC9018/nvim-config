@@ -612,7 +612,6 @@ local plugins =
             "zbirenbaum/copilot-cmp",
         },
         config = function(_)
-            -- Set up nvim-cmp.
             local cmp = require('cmp')
             require("copilot_cmp").setup()
 
@@ -649,6 +648,15 @@ local plugins =
                 return true
             end
 
+            local function acceptMapping(fallback)
+                if not cmp.visible() then
+                    fallback()
+                    return
+                end
+
+                cmp.confirm({ select = true })
+                cmp.close()
+            end
 
             local defaultMapping =
             {
@@ -664,15 +672,8 @@ local plugins =
                 end,
                 ['<C-j>'] = cmp.mapping.select_next_item(),
                 ['<C-k>'] = cmp.mapping.select_prev_item(),
-                [helper.tab()] = function(fallback)
-                    if not cmp.visible() then
-                        fallback()
-                        return
-                    end
-
-                    cmp.confirm({ select = true })
-                    cmp.close()
-                end,
+                [helper.tab()] = acceptMapping,
+                ['<LeftMouse>'] = acceptMapping,
             }
 
             local defaultSorting =
@@ -699,6 +700,17 @@ local plugins =
             ---@diagnostic disable-next-line: missing-parameter
             cmp.setup(
             {
+                enabled = function()
+                    local bufType = vim.api.nvim_buf_get_option(0, "buftype")
+                    if (bufType ~= "prompt") then
+                        return true
+                    end
+                    local cmpDap = require("cmp_dap")
+                    if cmpDap.is_dap_buffer() then
+                        return true
+                    end
+                    return false
+                end,
                 snippet =
                 {
                     expand = function(args)
@@ -814,6 +826,20 @@ local plugins =
                 {
                     { name = 'cmdline' },
                 })
+            })
+
+            ---@diagnostic disable-next-line: undefined-field
+            cmp.setup.filetype(
+            {
+                'dap-repl',
+                'dapui-watches',
+                'dapui-hover',
+            },
+            {
+                sources =
+                {
+                    { name = 'dap' },
+                },
             })
         end,
     },
@@ -958,6 +984,10 @@ table.insert(plugins,
     end,
 })
 
+local function doNothing()
+    -- it's set up in the cmp setup
+end
+
 table.insert(plugins,
 {
     "zbirenbaum/copilot-cmp",
@@ -965,9 +995,17 @@ table.insert(plugins,
     {
         "zbirenbaum/copilot.lua",
     },
-    config = function()
-        -- set up in the cmp setup
-    end,
+    config = doNothing,
+})
+
+table.insert(plugins,
+{
+    "rcarriga/cmp-dap",
+    dependencies =
+    {
+        "mfussenegger/nvim-dap",
+    },
+    config = doNothing,
 })
 
 table.insert(plugins,
@@ -1060,7 +1098,7 @@ table.insert(plugins,
         vim.keymap.set({ 'n', 'v' }, '<leader>go', ':GBrowse<CR>')
         vim.keymap.set('n', '<leader>gbl', ':Git blame<CR>')
         vim.keymap.set('n', '<leader>gd', ':Gvdiffsplit<CR>')
-    end
+    end,
 })
 
 for _, name in ipairs({
@@ -1084,6 +1122,60 @@ table.insert(plugins,
     init = function()
         vim.keymap.set("n", "<leader>h", ":UndotreeToggle<CR>")
     end,
+})
+
+table.insert(plugins,
+{
+    "mfussenegger/nvim-dap",
+    dependencies =
+    {
+        "Joakker/lua-json5",
+    },
+    init = function()
+        local dap = require("dap")
+
+        ---@diagnostic disable-next-line: undefined-field
+        dap.adapters.lldb =
+        {
+            type = "executable",
+            command = "lldb-vscode",
+            name = "lldb",
+        }
+
+        ---@diagnostic disable-next-line: undefined-field
+        dap.adapters.cppvsdbg =
+        {
+            type = "executable",
+            command = "vsdbg",
+            name = "cppvsdbg",
+        }
+
+        require("dap.ext.vscode").json_decode = require("json5").decode
+
+        local function setSign(signName, symbol)
+            vim.fn.sign_define(signName,
+            {
+                text = symbol,
+                texthl = '',
+                linehl = '',
+                numhl = '',
+            })
+        end
+        setSign("DapBreakpoint", "🔴")
+        setSign("DapBreakpointConditional", "🟢")
+        setSign("DapBreakpointRejected", "🚫")
+        setSign("DapStopped", "👉")
+        setSign("DapLogPoint", "📜")
+    end,
+})
+
+table.insert(plugins,
+{
+    "rcarriga/nvim-dap-ui",
+    dependencies =
+    {
+        "mfussenegger/nvim-dap",
+    },
 })
 
 require("lazy").setup(plugins);

@@ -6,3 +6,8 @@ At this point I might want to migrate my work to Linux though, having a package
 manager and not having to deal with Windows stuff would be nice.
 
 Install the nerd font `SauceCode` from [here](https://www.programmingfonts.org/#source-code-pro)
+
+Install (codelldb)[https://github.com/vadimcn/codelldb] for debugging.
+Must be found in PATH.
+
+You need to install cargo to be able to compile `json5` (done automatically).
