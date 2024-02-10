@@ -266,10 +266,6 @@ local plugins =
                     },
                 },
                 on_attach = onAttach,
-                filters =
-                {
-                    dotfiles = true,
-                },
                 sync_root_with_cwd = true,
             })
 
@@ -1126,31 +1122,136 @@ table.insert(plugins,
 
 table.insert(plugins,
 {
+    "Joakker/lua-json5",
+    build = function(plugin)
+        local command = "cd " .. vim.fn.shellescape(plugin.dir) .. "; "
+
+        -- MacOS needs some care for the installation.
+        -- See: https://github.com/Joakker/lua-json5
+        -- For windows you also need to set the script execution thing,
+        -- this might not work immediately.
+        local installCommand
+        if vim.fn.has("win32") then
+            installCommand = "powershell -noprofile -executionpolicy RemoteSigned -file .\\install.ps1"
+        else
+            installCommand = "./install.sh"
+        end
+
+        vim.fn.system(command .. installCommand)
+    end,
+})
+
+table.insert(plugins,
+{
     "mfussenegger/nvim-dap",
     dependencies =
     {
+        "stevearc/overseer.nvim",
         "Joakker/lua-json5",
     },
-    init = function()
+    build = function(plugin)
+        -- install codelldb from a vs code extension.
+        local template = "https://github.com/vadimcn/codelldb/releases/download/%/%"
+        -- arm, x86_64, aarch64
+        local arch = "x86_64" -- TODO
+        -- darwin, linux, windows
+        local os = "windows" -- TODO
+        local tag = "v1.10.0"
+        local zipNameTemplate = "codelldb-%-%.vsix"
+        local zipName = string.format(zipNameTemplate, arch, os)
+        local url = string.format(template, tag, zipName)
+        -- TODO a cross-platform api
+        vim.fn.system(
+            "cd " .. plugin.dir ..
+            "; curl " .. url ..
+            "; tar --extract --file " .. zipNameTemplate)
+    end,
+    init = function(plugin)
         local dap = require("dap")
 
-        ---@diagnostic disable-next-line: undefined-field
-        dap.adapters.lldb =
-        {
-            type = "executable",
-            command = "lldb-vscode",
-            name = "lldb",
-        }
+        if false then
+            ---@diagnostic disable-next-line: undefined-field
+            dap.adapters.lldb =
+            {
+                type = "executable",
+                command = "lldb-vscode",
+                name = "lldb",
+            }
 
-        ---@diagnostic disable-next-line: undefined-field
-        dap.adapters.cppvsdbg =
-        {
-            type = "executable",
-            command = "vsdbg",
-            name = "cppvsdbg",
-        }
+            ---@diagnostic disable-next-line: undefined-field
+            dap.adapters.cppvsdbg =
+            {
+                type = "executable",
+                command = "vsdbg",
+                name = "cppvsdbg",
+            }
+        end
 
-        require("dap.ext.vscode").json_decode = require("json5").decode
+        local path = require("utils.path")
+        do
+            local detached = vim.fn.has("win32") == 1
+
+            dap.adapters.codelldb =
+            {
+                type = "server",
+                port = "${port}",
+                executable =
+                {
+                    command = path.join(plugin.dir, "extension", "adapter", "codelldb"),
+                    args = { "--port", "{port}" },
+                    detached = detached,
+                },
+            }
+        end
+
+        local function cConfigs(compiler)
+            local program = function()
+                local currentFile = vim.api.nvim_buf_get_name(0)
+                local currentFileFolder = vim.fn.fnamemodify(currentFile, ":h")
+
+                -- do current file but remove the extension.
+                -- on windows, add .exe
+                local extension = vim.fn.has("win32") == 1 and ".exe" or nil
+                local outputFile = path.withExtension(currentFile, extension)
+
+                -- compile
+                vim.fn.system(
+                    "cd " .. vim.fn.shellescape(currentFileFolder)
+                    .. "; " .. compiler .. " -Wall -Werror -o "
+                    .. vim.fn.shellescape(outputFile)
+                    .. " " .. vim.fn.shellescape(currentFile))
+
+                -- execute
+                return outputFile
+            end
+
+            local result =
+            {
+                name = "Lauch current file (Default)",
+                type = "codelldb",
+                request = "launch",
+                program = program,
+            }
+            return { result }
+        end
+
+        dap.configurations.cpp = cConfigs("g++")
+        dap.configurations.c = cConfigs("gcc")
+        dap.configurations.zig =
+        {
+            name = "Zig run",
+            type = "codelldb",
+            request = "launch",
+            program = function()
+                vim.system("zig build install")
+                return path.join("${workspaceDir}", "zig_out", "bin", "???")
+            end,
+        }
+        do
+            local vscode = require("dap.ext.vscode")
+            vscode.json_decode = require("json5").parse
+            vscode.load_launchjs(nil, { codelldb = { "cpp", "c", "zig" } })
+        end
 
         local function setSign(signName, symbol)
             vim.fn.sign_define(signName,
@@ -1166,6 +1267,11 @@ table.insert(plugins,
         setSign("DapBreakpointRejected", "🚫")
         setSign("DapStopped", "👉")
         setSign("DapLogPoint", "📜")
+
+        vim.keymap.set('n', '<F5>', function() require('dap').continue() end)
+        vim.keymap.set('n', '<F10>', function() require('dap').step_over() end)
+        vim.keymap.set('n', '<F11>', function() require('dap').step_into() end)
+        vim.keymap.set('n', '<F12>', function() require('dap').step_out() end)
     end,
 })
 

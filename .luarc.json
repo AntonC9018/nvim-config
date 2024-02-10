@@ -1,0 +1,6 @@
+{
+    "diagnostics.globals": [
+        "arg_parts",
+        "vim"
+    ]
+}
