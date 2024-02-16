@@ -1,5 +1,8 @@
 local helper = require('core.helper')
 
+vim.g.loaded_netrw = 1
+vim.g.loaded_netrwPlugin = 1
+
 local defaultFontInfo = helper.defaultFontInfo()
 vim.opt.guifont = helper.setGuiFont(defaultFontInfo)
 
@@ -20,3 +23,8 @@ vim.o.timeoutlen = 8000
 
 -- https://stackoverflow.com/questions/36500099/vim-gf-should-open-file-and-jump-to-line
 vim.cmd("set isfname-=:")
+
+vim.cmd("set whichwrap+=h,l")
+
+vim.o.autoindent = true
+

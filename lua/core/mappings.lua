@@ -112,3 +112,94 @@ local function registerRomanianKeys()
 end
 
 registerRomanianKeys()
+
+vim.keymap.set("n", "gb", "`[")
+
+vim.keymap.set("n", "<leader><CR>", function()
+    local buf = vim.api.nvim_win_get_buf(0)
+    local cursor = vim.api.nvim_win_get_cursor(0)
+    local cursorRow = cursor[1]
+    local cursorCol = cursor[2]
+
+    local currentLine
+    do
+        local startRow = cursorRow
+        local startCol = 0
+        local endRow = cursorRow
+        local endCol = -1
+        local opts = {}
+        currentLine = vim.api.nvim_buf_get_text(
+            buf,
+            startRow,
+            startCol,
+            endRow,
+            endCol,
+            opts)[1]
+    end
+
+    -- 1. Go to the left until we find one of the outer characters.
+    local openingDelimiters = ".*([%(%{%['\"`])"
+    local leftSubstring = currentLine:sub(1, cursorCol)
+
+    local function findUrlStart(s)
+        local dStart, dEnd = string.find(s, openingDelimiters)
+        if dStart ~= nil then
+            return dStart, dEnd
+        end
+
+        local sStart, sEnd = string.find(s, ".*(%s)")
+        if sStart ~= nil then
+            return sStart, sEnd
+        end
+
+        return 1, nil
+    end
+
+    local leftStartCol, delimiterEndCol = findUrlStart(leftSubstring)
+
+    local rightSubstring = currentLine:sub(cursorCol + 1)
+
+    local rightEndCol
+    if delimiterEndCol ~= nil then
+        local matchedString = string.sub(leftSubstring, leftStartCol, delimiterEndCol)
+        local mappings =
+        {
+            ['('] = ')',
+            ['['] = ']',
+            ['{'] = '}',
+        }
+        local mapped = mappings[matchedString]
+        if mapped == nil then
+            mapped = matchedString
+        end
+
+        local rightDelimiterCol = string.find(rightSubstring, mapped)
+        if rightDelimiterCol ~= nil then
+            rightEndCol = rightDelimiterCol + cursorCol
+        else
+            rightEndCol = string.len(rightSubstring)
+        end
+    end
+
+    do
+        local startCol = leftStartCol
+        local endCol = rightEndCol + cursorCol
+        local wholeUrl = currentLine:sub(startCol, endCol)
+
+        -- Do the # syntax
+        local octothorpIndex = string.find(wholeUrl, ".*(#)")
+        local fileUrl
+        if octothorpIndex ~= nil then
+            fileUrl = string.sub(wholeUrl, 1, octothorpIndex - 1)
+        else
+            fileUrl = wholeUrl
+        end
+
+        -- check if the file exists by resolving the path
+        local folderOfCurrentBuffer = vim.fn.expand("%:p:h")
+        local fileInfo = vim.loop.fs_stat(fileUrl)
+        if fileInfo == nil then
+            -- open in browser
+        end
+    end
+end)

@@ -39,6 +39,9 @@ local plugins =
                     "javascript",
                     "html",
                     "go",
+                    "latex",
+                    "markdown",
+                    "markdown_inline",
                 },
                 sync_install = false,
                 auto_install = true,
@@ -226,35 +229,66 @@ local plugins =
             local api = require("nvim-tree.api")
 
             local function onAttach(bufnr)
-                local function set(binding, action)
-                    vim.keymap.set('n', binding, action, { buffer = bufnr })
+                local function set(binding, action, desc)
+                    vim.keymap.set({ 'n', 'v' }, binding, action, {
+                        buffer = bufnr,
+                        desc = desc,
+                    })
                 end
-                set('q', api.tree.close)
-                set('cd', api.tree.change_root_to_node)
-                set('<CR>', api.node.open.edit)
-                set('l', api.node.open.edit)
-                set('h', api.node.navigate.parent_close)
-                set('<C-i>', api.node.show_info_popup)
-                set('<F2>', api.fs.rename_basename)
-                set('r', api.fs.rename)
-                set('.', api.node.run.cmd)
-                set('-', api.tree.change_root_to_parent)
-                set('ti', api.tree.toggle_gitignore_filter)
-                set('d', api.fs.remove)
-                set('E', api.tree.expand_all)
-                set('<C-r>', api.tree.reload)
-                set('e', api.tree.collapse_all)
-                set('pr', api.fs.copy.relative_path)
-                set('pa', api.fs.copy.absolute_path)
-                set('a', api.fs.create)
-                set('R', api.node.run.system)
-                set('yn', api.fs.copy.filename)
-                set('g?', api.tree.toggle_help)
-                set('<2-LeftMouse>', api.node.open.edit)
-            end
 
-            -- vim.g.loaded_netrw = 1
-            vim.g.loaded_netrwPlugin = 1
+                set('q', api.tree.close, "Close")
+                set('cd', api.tree.change_root_to_node, "Change directory")
+                set('<CR>', api.node.open.edit, "Edit")
+                set('l', api.node.open.edit, "Open or Edit")
+                set('h', api.node.navigate.parent_close, "Fold parent")
+                set('<C-i>', api.node.show_info_popup, "Show info")
+                set('<F2>', api.fs.rename_basename, "Rename")
+                set('r', api.fs.rename, "Rename (all)")
+                set('<2-LeftMouse>', api.node.open.edit, "Edit")
+                set('x', function()
+                    local lib = require("nvim-tree.lib")
+                    local node = lib.get_node_at_cursor()
+                    if node == nil then
+                        return
+                    end
+                    vim.cmd("silent !start explorer.exe /select," .. vim.fn.shellescape(node.absolute_path))
+                end, "Open in Explorer")
+                set("y", api.fs.copy.node, "Copy")
+                set("d", api.fs.cut, "Cut")
+                set("p", api.fs.paste, "Paste")
+                set("t", api.fs.clear_clipboard, "Clear clipboard")
+                set('-', api.tree.change_root_to_parent, "Go up")
+                set('i', api.tree.toggle_gitignore_filter, "Toggle gitignore")
+                set('D', api.fs.remove, "Delete")
+                set('L', api.tree.expand_all, "Expand all")
+                set('H', api.tree.collapse_all, "Collapse all")
+                set('<C-r>', api.tree.reload, "Reload")
+                -- set('pr', api.fs.copy.relative_path, "Copy relative path")
+                -- set('pa', api.fs.copy.absolute_path, "Copy absolute path")
+                set('a', api.fs.create, "Create file or directory (append / at end for a directory)")
+                set('R', api.node.run.system, "Run (system)")
+                set('Y', api.fs.copy.filename, "Copy filename")
+                set('g?', api.tree.toggle_help, "Help")
+                set('e', api.tree.close, "Close")
+
+                -- Doesn't work
+                local timeoutLenOption = vim.o.timeoutlen
+                vim.o.timeoutlen = 1
+                vim.api.nvim_create_autocmd("BufEnter",
+                {
+                    buffer = bufnr,
+                    callback = function()
+                        vim.o.timeoutlen = 1
+                    end,
+                })
+                vim.api.nvim_create_autocmd("BufLeave",
+                {
+                    buffer = bufnr,
+                    callback = function()
+                        vim.o.timeoutlen = timeoutLenOption
+                    end,
+                })
+            end
 
             require("nvim-tree").setup(
             {
@@ -271,16 +305,70 @@ local plugins =
                     dotfiles = true,
                 },
                 sync_root_with_cwd = true,
+                renderer =
+                {
+                    add_trailing = true,
+                    indent_width = 4,
+                    highlight_diagnostics = "name",
+                    highlight_clipboard = "name",
+                    highlight_bookmarks = "name",
+                    icons =
+                    {
+                        glyphs =
+                        {
+                            git =
+                            {
+                                unstaged = "x",
+                                staged = "✓",
+                                unmerged = "",
+                                renamed = "R",
+                                untracked = "N", -- new
+                                deleted = "🗑️",
+                                ignored = "◌",
+                            },
+                        },
+                    },
+                },
+                git =
+                {
+                    cygwin_support = true,
+                },
+                diagnostics =
+                {
+                    enable = true,
+                },
+                hijack_cursor = true,
+                ui =
+                {
+                    confirm =
+                    {
+                        default_yes = true,
+                    },
+                },
+                view =
+                {
+                    relativenumber = true,
+                    width = "100%",
+                },
             })
+
+            local tree = require('nvim-tree.api').tree
 
             -- Explorer
             vim.keymap.set('n', 'we', function()
-                local tree = require('nvim-tree.api').tree
                 if tree.is_tree_buf(0) then
                     tree.close()
                 else
                     tree.open()
                 end
+            end)
+
+            vim.keymap.set('n', 'wE', function()
+                tree.open(
+                {
+                    find_file = true,
+                    update_root = false,
+                })
             end)
         end
     },
@@ -312,16 +400,29 @@ local plugins =
         'phaazon/hop.nvim',
         config = function(_)
             local hop = require("hop")
-            hop.setup();
+            hop.setup(
+            {
+            });
+
+            local hopOpts =
+            {
+                direction = nil,
+                current_line_only = false,
+                case_insensitive = false,
+            }
+            local opts = { remap = true }
 
             vim.keymap.set({ 'n', 'v' }, ';',
                 function()
-                    hop.hint_char1({
-                        direction = nil,
-                        current_line_only = false,
-                    })
+                    hop.hint_char1(hopOpts)
                 end,
-                { remap = true })
+                opts)
+
+            vim.keymap.set({ 'n', 'v' }, '<C-;>',
+                function()
+                    hop.hint_char2(hopOpts)
+                end,
+                opts)
         end,
     },
     {
@@ -346,7 +447,7 @@ local plugins =
                 position = "bottom",
                 icons = true,
                 mode = "workspace_diagnostics",
-                severity = vim.diagnostic.severity.ERROR,
+                severity = vim.diagnostic.severity.WARN,
                 group = true,
                 padding = false,
                 cycle_results = false,
@@ -629,23 +730,20 @@ local plugins =
                         return entryKind ~= snippetKind
                     end,
                 },
-            },
-            {
                 { name = 'buffer' },
             })
 
+            local globalCompletionTarget
             local function tryResetCompletionTarget(completionTarget)
-                local context = cmp.core:get_context()
-
                 if not cmp.visible() then
-                    context.completionTarget = completionTarget
+                    globalCompletionTarget = completionTarget
                     return true
                 end
 
-                if context.completionTarget == completionTarget then
+                if globalCompletionTarget == completionTarget then
                     return false
                 end
-                context.completionTarget = completionTarget
+                globalCompletionTarget = completionTarget
                 return true
             end
 
@@ -654,18 +752,30 @@ local plugins =
             {
                 ['<C-Space>'] = function(_)
                     local isRegular = tryResetCompletionTarget('regular')
-
+                    cmp.abort()
                     if not isRegular then
-                        cmp.abort()
                         return
                     end
-
                     cmp.complete()
                 end,
                 ['<C-j>'] = cmp.mapping.select_next_item(),
                 ['<C-k>'] = cmp.mapping.select_prev_item(),
                 [helper.tab()] = function(fallback)
                     if not cmp.visible() then
+                        fallback()
+                        return
+                    end
+
+                    cmp.confirm({ select = true })
+                    cmp.close()
+                end,
+                ["<CR>"] = function(fallback)
+                    if not cmp.visible() then
+                        fallback()
+                        return
+                    end
+
+                    if cmp.get_active_entry() == nil then
                         fallback()
                         return
                     end
@@ -704,6 +814,13 @@ local plugins =
                     expand = function(args)
                         require('luasnip').lsp_expand(args.body)
                     end,
+                },
+                window =
+                {
+                    documentation =
+                    {
+                        max_width = 1000,
+                    },
                 },
                 preselect_mode = cmp.PreselectMode.None,
                 autocomplete = true,
@@ -829,9 +946,6 @@ local plugins =
     },
     {
         'wellle/targets.vim',
-    },
-    {
-        'jghauser/follow-md-links.nvim',
     },
     {
         "booperlv/nvim-gomove",
@@ -1083,7 +1197,15 @@ table.insert(plugins,
     "mbbill/undotree",
     init = function()
         vim.keymap.set("n", "<leader>h", ":UndotreeToggle<CR>")
+
+
     end,
+})
+
+vim.api.nvim_create_autocmd("ColorScheme", {
+    callback = function()
+        vim.cmd.highlight("MatchParen guibg=#555599 guisp=Blue")
+    end
 })
 
 require("lazy").setup(plugins);

@@ -46,7 +46,6 @@ function helper.modifyKey(modifier, key)
 end
 
 --- Define mappings for alt key, command key, and meta key.
---- @param table 
 helper.altMacBinding = function(table)
     local key = table.key
     if key == nil then
