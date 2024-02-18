@@ -88,6 +88,10 @@ local plugins =
             local actions = require("telescope.actions")
             local helpKey = "<F1>"
 
+            local function deleteWordBack()
+                vim.api.nvim_input("<C-S-w>")
+            end
+
             ---@diagnostic disable-next-line: missing-parameter
             require("telescope").setup({
                 defaults =
@@ -109,7 +113,8 @@ local plugins =
                             ["<C-q>"] = false,
                             ["<M-q>"] = false,
                             [helper.controlSlash()] = false,
-                            ["<C-w>"] = false,
+                            ["<C-w>"] = deleteWordBack,
+                            [helper.controlBackspace()] = deleteWordBack,
                             ["<C-r><C-w>"] = false,
                             ["<C-u>"] = false,
                             ["<C-d>"] = false,
@@ -123,6 +128,12 @@ local plugins =
                             ["<CR>"] = actions.select_default,
                             ["<C-p>"] = require('telescope.actions').cycle_history_next,
                             ["<C-n>"] = require('telescope.actions').cycle_history_prev,
+                            ["<C-h>"] = function()
+                                vim.api.nvim_input("<Left>")
+                            end,
+                            ["<C-l>"] = function()
+                                vim.api.nvim_input("<Right>")
+                            end,
                         },
                         n =
                         {
