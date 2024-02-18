@@ -230,7 +230,7 @@ local plugins =
 
             local function onAttach(bufnr)
                 local function set(binding, action, desc)
-                    vim.keymap.set({ 'n', 'v' }, binding, action, {
+                    vim.keymap.set('n', binding, action, {
                         buffer = bufnr,
                         desc = desc,
                     })
@@ -263,12 +263,12 @@ local plugins =
                 set('L', api.tree.expand_all, "Expand all")
                 set('H', api.tree.collapse_all, "Collapse all")
                 set('<C-r>', api.tree.reload, "Reload")
-                -- set('pr', api.fs.copy.relative_path, "Copy relative path")
-                -- set('pa', api.fs.copy.absolute_path, "Copy absolute path")
+                set('p', api.fs.copy.relative_path, "Copy relative path")
+                set('P', api.fs.copy.absolute_path, "Copy absolute path")
                 set('a', api.fs.create, "Create file or directory (append / at end for a directory)")
                 set('R', api.node.run.system, "Run (system)")
                 set('Y', api.fs.copy.filename, "Copy filename")
-                set('g?', api.tree.toggle_help, "Help")
+                set('<C-g>', api.tree.toggle_help, "Help")
                 set('e', api.tree.close, "Close")
 
                 -- Doesn't work
@@ -323,7 +323,7 @@ local plugins =
                                 unmerged = "",
                                 renamed = "R",
                                 untracked = "N", -- new
-                                deleted = "🗑️",
+                                deleted = "D",
                                 ignored = "◌",
                             },
                         },
@@ -443,7 +443,8 @@ local plugins =
         "folke/trouble.nvim",
         dependencies = { "nvim-tree/nvim-web-devicons" },
         config = function(_)
-            require("trouble").setup({
+            local trouble = require("trouble");
+            trouble.setup({
                 position = "bottom",
                 icons = true,
                 mode = "workspace_diagnostics",
@@ -454,7 +455,7 @@ local plugins =
                 action_keys =
                 {
                     close = "<esc>", -- close the list
-                    refresh = "r",
+                    refresh = "<C-r>",
                     jump = { "<cr>", "<tab>", "<2-leftmouse>" },
                     -- open_tab = { "<c-t>" }, -- open buffer in new tab
                     jump_close = "gd",
@@ -463,10 +464,10 @@ local plugins =
                     toggle_preview = "P",
                     hover = "<C-i>",
                     preview = "p",
-                    open_code_href = "gi",
+                    open_code_href = "x",
                     toggle_fold = "L",
-                    previous = "k",
-                    next = "j",
+                    previous = "<C-k>",
+                    next = "<C-j>",
                     help = helper.controlSlash(),
                 },
                 multiline = true,
@@ -493,7 +494,18 @@ local plugins =
                 use_diagnostic_signs = false,
             })
 
-            vim.keymap.set("n", "wd", vim.cmd.Trouble)
+            vim.keymap.set("n", "wd", function()
+                trouble.toggle()
+            end)
+            vim.keymap.set("n", "gu", function()
+                trouble.toggle("lsp_references")
+            end)
+            vim.keymap.set("n", "ge", function()
+                trouble.next({ skip_groups = true, jump = true })
+            end)
+            vim.keymap.set("n", "gE", function()
+                trouble.previous({ skip_groups = true, jump = true })
+            end)
         end
     },
     {
@@ -614,6 +626,7 @@ local plugins =
                 capabilities =
                 {
                     offsetEncoding = "utf-8",
+                    compileFlags = { "-std=c++20", "-Wall" },
                 },
             })
 
@@ -625,8 +638,6 @@ local plugins =
 
                     local opts = { buffer = ev.buf }
 
-                    vim.keymap.set('n', 'gE', vim.diagnostic.goto_prev)
-                    vim.keymap.set('n', 'ge', vim.diagnostic.goto_next)
                     vim.keymap.set('n', 'gD', vim.lsp.buf.declaration, opts)
                     helper.altMacBinding(
                     {
@@ -1206,6 +1217,22 @@ vim.api.nvim_create_autocmd("ColorScheme", {
     callback = function()
         vim.cmd.highlight("MatchParen guibg=#555599 guisp=Blue")
     end
+})
+
+-- Buggy with <C-w><C-o>
+table.insert(plugins,
+{
+    "nvim-treesitter/nvim-treesitter-context",
+    dependencies =
+    {
+        "nvim-treesitter/nvim-treesitter",
+    },
+    init = function()
+        local context = require("treesitter-context");
+        vim.keymap.set("n", "[c", function()
+            context.go_to_context(vim.v.count1)
+        end, { silent = true })
+    end,
 })
 
 require("lazy").setup(plugins);

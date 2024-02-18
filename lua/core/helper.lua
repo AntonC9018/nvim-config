@@ -185,7 +185,7 @@ function helper.defaultFontInfo()
     return
     {
         name = "SauceCodePro NF",
-        size = 16,
+        size = 14,
     }
 end
 

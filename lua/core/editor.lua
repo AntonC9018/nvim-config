@@ -1,6 +1,6 @@
 local helper = require('core.helper')
 
-vim.g.loaded_netrw = 1
+-- vim.g.loaded_netrw = 1
 vim.g.loaded_netrwPlugin = 1
 
 local defaultFontInfo = helper.defaultFontInfo()
@@ -27,4 +27,4 @@ vim.cmd("set isfname-=:")
 vim.cmd("set whichwrap+=h,l")
 
 vim.o.autoindent = true
-
+vim.o.cmdheight = 2
