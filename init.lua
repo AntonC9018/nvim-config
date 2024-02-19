@@ -21,6 +21,10 @@ local plugins =
 {
     {
         "nvim-treesitter/nvim-treesitter",
+        dependencies =
+        {
+            "andymass/vim-matchup",
+        },
         config = function()
             ---@diagnostic disable-next-line: missing-parameter
             require("nvim-treesitter").setup(
@@ -62,7 +66,15 @@ local plugins =
                     additional_vim_regex_highlighting = false,
                 },
             })
-            -- vim.cmd(":silent TSUpdate");
+
+            require('nvim-treesitter.configs').setup(
+            ---@diagnostic disable-next-line: missing-fields
+            {
+                matchup =
+                {
+                    enable = true,
+                },
+            })
         end,
     },
     {
