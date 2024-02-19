@@ -200,4 +200,51 @@ function helper.updateCurrentFontSize(amount)
     helper.setGuiFont(currentFont)
 end
 
+local path = require("utils.path")
+
+function helper.formatPath(filePath)
+    local parsedFilePath = path.parse(filePath);
+    if parsedFilePath.drive == nil then
+        return filePath
+    end
+
+    local fileName = parsedFilePath.segments[#parsedFilePath.segments];
+    return fileName
+end
+
+---@diagnostic disable-next-line: unused-local, unused-function
+local function formatAsFileNameAndPath(parsedFilePath)
+
+    local fileName = parsedFilePath.segments[#parsedFilePath.segments];
+    table.remove(parsedFilePath.segments, #parsedFilePath.segments);
+
+    local relativePath = (function()
+        local parsedCwd = path.parsedCwd();
+
+        if parsedCwd.drive ~= parsedFilePath.drive then
+            return path.unparse(parsedFilePath)
+        end
+
+        -- I think this code will never actually run,
+        -- because it always gets you a relative path if possible
+        local i = 0
+        while (i + 1 <= #parsedCwd.segments
+            and i + 1 <= #parsedFilePath.segments
+            and parsedFilePath.segments[i + 1])
+        do
+            i = i + 1
+        end
+        if i == 0 then
+            return ""
+        end
+        local result = {};
+        for j = i + 1, #parsedFilePath.segments do
+            table.insert(result, parsedFilePath.segments[j])
+        end
+        return path.unparse({ segments = result })
+    end)()
+
+    return string.format("%s  %s", fileName, relativePath)
+end
+
 return helper

@@ -195,6 +195,10 @@ local plugins =
                     },
                     results_title = false,
                     prompt_title = false,
+                    path_display = function(_, path)
+                        return helper.formatPath(path)
+                    end,
+                    dynamic_preview_title = true,
                 },
             })
 
@@ -220,7 +224,12 @@ local plugins =
             end, {})
             -- vim.keymap.set("n", "<leader>h<leader>", builtin.command_history, {})
             -- vim.keymap.set("n", "<leader>hf", builtin.search_history, {})
-            vim.keymap.set("n", "<C-e>", builtin.buffers, {})
+            vim.keymap.set("n", "<C-e>", function()
+                builtin.buffers({
+                    sort_lastused = true,
+                    bufnr_width = 0,
+                })
+            end, {})
             vim.keymap.set("n", "<leader>sj", builtin.jumplist, {})
             vim.keymap.set("n", "<leader>sk", builtin.keymaps, {})
             vim.keymap.set("n", "<leader>sd", builtin.diagnostics, {})
@@ -315,7 +324,7 @@ local plugins =
                 {
                     dotfiles = true,
                 },
-                sync_root_with_cwd = true,
+                -- sync_root_with_cwd = true,
                 renderer =
                 {
                     add_trailing = true,
@@ -378,7 +387,7 @@ local plugins =
                 tree.open(
                 {
                     find_file = true,
-                    update_root = false,
+                    update_root = true,
                 })
             end)
         end
@@ -403,7 +412,8 @@ local plugins =
             vim.o.foldlevel = 99
             vim.o.foldlevelstart = 99
 
-            require('ufo').setup({
+            local ufo = require('ufo');
+            ufo.setup({
             })
         end,
     },

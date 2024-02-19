@@ -10,7 +10,7 @@ else
     M.inactive_path_separator = "\\"
 end
 M.any_path_separator_regex = "[\\/]"
-M.not_any_path_separator_regex = "[^\\^/]"
+M.not_any_path_separator_regex = "[^\\/]"
 
 
 ---Split string into a table of strings using a separator.
@@ -95,8 +95,8 @@ function M.isAbsolute(path)
     return result ~= nil
 end
 
-function M.joinParts(parsedPath)
-    local pathPart = table.concat(parsedPath.parts, M.path_separator)
+function M.unparse(parsedPath)
+    local pathPart = table.concat(parsedPath.segments, M.path_separator)
     if parsedPath.drive ~= nil then
         return parsedPath.drive .. M.path_separator .. pathPart
     else
@@ -104,33 +104,53 @@ function M.joinParts(parsedPath)
     end
 end
 
+function M.parsedCwd()
+    -- TODO: event on cwd change
+    return M.parse(vim.fn.getcwd())
+end
+
+local pathSegmentRegex = M.any_path_separator_regex .. "(" .. M.not_any_path_separator_regex .. "*)"
+local driveRegex = "^[A-Za-z]:"
+
+function M.isRooted(path)
+    local hasDrive = string.find(path, driveRegex)
+    return hasDrive ~= nil
+end
+
 function M.parse(path)
-    local drive = string.match(path, "^[A-Z]:")
+    local drive = string.match(path, driveRegex)
 
     local result = {}
     result.drive = drive
+    result.segments = {}
 
     if drive ~= nil then
         if string.len(path) == string.len(drive) then
             return result
         end
 
-        path = string.sub(path, string.len(path) + 1)
-    end
+        path = string.sub(path, string.len(drive) + 1, string.len(path))
+    else
+        local firstSep = string.find(path, M.any_path_separator_regex)
+        if firstSep == nil then
+            if string.len(path) > 0 then
+                table.insert(result.segments, path)
+            end
+            return result
+        end
 
-    -- (^[A-Z]:)|
-
-    local partsIterator = string.gmatch(path,
-        M.any_path_separator_regex .. M.not_any_path_separator_regex .. "*")
-
-    local parts = {}
-    for part in partsIterator do
-        if string.len(part) > 0 then
-            table.insert(parts, part)
+        if firstSep ~= 1 then
+            local firstSegment = path:sub(1, firstSep - 1)
+            table.insert(result.segments, firstSegment)
         end
     end
 
-    result.parts = parts
+    for segment in string.gmatch(path, pathSegmentRegex) do
+        if string.len(segment) > 0 then
+            table.insert(result.segments, segment)
+        end
+    end
+
     return result
 end
 
@@ -140,32 +160,32 @@ function M.absolutePath(basePath, relativePath)
         return relativePath
     end
 
-    if #relativeParts.parts == 0 then
+    if #relativeParts.segments == 0 then
         return basePath
     end
 
-    local newParts = {}
+    local newSegments = {}
     local function appendParts(parts)
         for _, part in ipairs(parts) do
-            if part == ".." and #newParts ~= 0 then
-                table.remove(newParts, #newParts)
+            if part == ".." and #newSegments ~= 0 then
+                table.remove(newSegments, #newSegments)
             elseif part ~= "." then
-                table.insert(newParts, part)
+                table.insert(newSegments, part)
             end
         end
     end
 
     local baseParts = M.parse(basePath)
-    appendParts(baseParts.parts)
-    appendParts(relativeParts.parts)
+    appendParts(baseParts.segments)
+    appendParts(relativeParts.segments)
 
     local resultParts =
     {
         drive = baseParts.drive,
-        parts = newParts,
+        segments = newSegments,
     }
 
-    return M.joinParts(resultParts)
+    return M.unparse(resultParts)
 end
 
 function M.currentFilePath()
