@@ -28,3 +28,5 @@ vim.cmd("set whichwrap+=h,l")
 
 vim.o.autoindent = true
 vim.o.cmdheight = 2
+
+vim.o.undofile = true
