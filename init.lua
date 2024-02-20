@@ -98,10 +98,36 @@ local plugins =
         },
         config = function()
             local actions = require("telescope.actions")
+
             local helpKey = "<F1>"
 
             local function deleteWordBack()
                 vim.api.nvim_input("<C-S-w>")
+            end
+
+            local action_state = require("telescope.actions.state")
+            local entry_display = require("telescope.pickers.entry_display")
+
+            local function copyAllEntries(prompt_bufnr)
+                local picker = action_state.get_current_picker(prompt_bufnr)
+                local manager = picker.manager
+
+                local entries = {}
+                for entry in manager:iter() do
+                    local display, _ = entry_display.resolve(picker, entry)
+                    table.insert(entries, display)
+                end
+
+                local text = table.concat(entries, "\n")
+
+                vim.fn.setreg("+", text)
+            end
+
+            local function copySelectedEntry(prompt_bufnr)
+                local picker = action_state.get_current_picker(prompt_bufnr)
+                local entry = picker:get_selection()
+                local display, _ = entry_display.resolve(picker, entry)
+                vim.fn.setreg("+", display)
             end
 
             ---@diagnostic disable-next-line: missing-parameter
@@ -112,6 +138,8 @@ local plugins =
                     {
                         i =
                         {
+                            ["<C-Y>"] = copyAllEntries,
+                            ["<C-y>"] = copySelectedEntry,
                             -- ["<C-n>"] = false,
                             -- ["<C-p>"] = false,
                             ["<C-x>"] = false,
@@ -149,6 +177,8 @@ local plugins =
                         },
                         n =
                         {
+                            ["<C-Y>"] = copyAllEntries,
+                            ["<C-y>"] = copySelectedEntry,
                             ["<esc>"] = actions.close,
                             ["<CR>"] = actions.select_default,
                             ["<C-x>"] = false,
