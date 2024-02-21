@@ -690,6 +690,14 @@ local plugins =
                 -- CompileFlags:
                 --   Add: [ "-std=c++20", "-Wall" ]
                 --
+                -- TODO: Automatically create a formatter config if it doesn't exist:
+                --
+                -- https://clang.llvm.org/docs/ClangFormatStyleOptions.html
+                --
+                -- BasedOnStyle: Microsoft
+                -- IndentWidth: 4
+                -- SortIncludes: SI_Never
+                --
                 capabilities =
                 {
                     offsetEncoding = "utf-8",
@@ -722,7 +730,9 @@ local plugins =
                     vim.keymap.set('n', '<F2>', vim.lsp.buf.rename, opts)
                     vim.keymap.set({ 'n', 'v' }, '<C-.>', vim.lsp.buf.code_action, opts)
                     vim.keymap.set({ 'n', 'v' }, '<space>ref', function()
-                        vim.lsp.buf.format({ async = true })
+                        vim.lsp.buf.format({
+                            async = true,
+                        })
                     end, opts)
                 end,
             })
