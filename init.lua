@@ -266,7 +266,7 @@ local plugins =
             end, {})
             -- vim.keymap.set("n", "<leader>h<leader>", builtin.command_history, {})
             -- vim.keymap.set("n", "<leader>hf", builtin.search_history, {})
-            vim.keymap.set("n", "<C-e>", function()
+            vim.keymap.set({ "n", "i", "v" }, "<C-e>", function()
                 builtin.buffers({
                     sort_lastused = true,
                     bufnr_width = 0,
@@ -298,8 +298,9 @@ local plugins =
                     })
                 end
 
+                set('<Esc>', api.tree.close, "Close")
                 set('q', api.tree.close, "Close")
-                set('cd', api.tree.change_root_to_node, "Change directory")
+                set('d', api.tree.change_root_to_node, "Change directory")
                 set('<CR>', api.node.open.edit, "Edit")
                 set('l', api.node.open.edit, "Open or Edit")
                 set('h', api.node.navigate.parent_close, "Fold parent")
@@ -307,7 +308,7 @@ local plugins =
                 set('<F2>', api.fs.rename_basename, "Rename")
                 set('r', api.fs.rename, "Rename (all)")
                 set('<2-LeftMouse>', api.node.open.edit, "Edit")
-                set('x', function()
+                set('o', function()
                     local lib = require("nvim-tree.lib")
                     local node = lib.get_node_at_cursor()
                     if node == nil then
@@ -316,16 +317,17 @@ local plugins =
                     vim.cmd("silent !start explorer.exe /select," .. vim.fn.shellescape(node.absolute_path))
                 end, "Open in Explorer")
                 set("y", api.fs.copy.node, "Copy")
-                set("d", api.fs.cut, "Cut")
+                set("x", api.fs.cut, "Cut")
                 set("p", api.fs.paste, "Paste")
                 set("t", api.fs.clear_clipboard, "Clear clipboard")
                 set('-', api.tree.change_root_to_parent, "Go up")
                 set('i', api.tree.toggle_gitignore_filter, "Toggle gitignore")
+                set('I', api.tree.toggle_hidden_filter, "Toggle hidden")
                 set('D', api.fs.remove, "Delete")
                 set('L', api.tree.expand_all, "Expand all")
                 set('H', api.tree.collapse_all, "Collapse all")
                 set('<C-r>', api.tree.reload, "Reload")
-                set('p', api.fs.copy.relative_path, "Copy relative path")
+                set('R', api.fs.copy.relative_path, "Copy relative path")
                 set('P', api.fs.copy.absolute_path, "Copy absolute path")
                 set('a', api.fs.create, "Create file or directory (append / at end for a directory)")
                 set('R', api.node.run.system, "Run (system)")
@@ -511,7 +513,7 @@ local plugins =
                 position = "bottom",
                 icons = true,
                 mode = "workspace_diagnostics",
-                severity = vim.diagnostic.severity.WARN,
+                severity = { vim.diagnostic.severity.WARN, vim.diagnostic.severity.ERROR },
                 group = true,
                 padding = false,
                 cycle_results = false,
@@ -686,10 +688,16 @@ local plugins =
 
             lspconfig.clangd.setup(
             {
+                -- TODO: Create a config file if it doesn't exist:
+                --
+                -- https://clangd.llvm.org/config#files
+                --
+                -- CompileFlags:
+                --   Add: [ "-std=c++20", "-Wall" ]
+                --
                 capabilities =
                 {
                     offsetEncoding = "utf-8",
-                    compileFlags = { "-std=c++20", "-Wall" },
                 },
             })
 
