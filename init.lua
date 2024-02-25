@@ -504,7 +504,8 @@ local plugins =
         dependencies = { "nvim-tree/nvim-web-devicons" },
         config = function(_)
             local trouble = require("trouble");
-            trouble.setup({
+            trouble.setup(
+            {
                 position = "bottom",
                 icons = true,
                 mode = "workspace_diagnostics",
@@ -526,8 +527,8 @@ local plugins =
                     preview = "p",
                     open_code_href = "x",
                     toggle_fold = "L",
-                    previous = "<C-k>",
-                    next = "<C-j>",
+                    previous = "k",
+                    next = "j",
                     help = helper.controlSlash(),
                 },
                 multiline = true,
@@ -555,17 +556,18 @@ local plugins =
             })
 
             vim.keymap.set("n", "wd", function()
-                trouble.toggle()
+                trouble.toggle("workspace_diagnostics")
             end)
             vim.keymap.set("n", "gu", function()
                 trouble.toggle("lsp_references")
             end)
-            vim.keymap.set("n", "ge", function()
-                trouble.next({ skip_groups = true, jump = true })
-            end)
-            vim.keymap.set("n", "gE", function()
-                trouble.previous({ skip_groups = true, jump = true })
-            end)
+
+            -- vim.keymap.set("n", "ge", function()
+            --     trouble.next({ skip_groups = true, jump = true })
+            -- end)
+            -- vim.keymap.set("n", "gE", function()
+            --     trouble.previous({ skip_groups = true, jump = true })
+            -- end)
         end
     },
     {
@@ -736,6 +738,13 @@ local plugins =
                     end, opts)
                 end,
             })
+
+            vim.keymap.set("n", "ge", function()
+                vim.diagnostic.goto_next()
+            end, opts);
+            vim.keymap.set("n", "gE", function()
+                vim.diagnostic.goto_prev()
+            end);
         end
     },
     {
