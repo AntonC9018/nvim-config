@@ -240,10 +240,6 @@ local plugins =
                 },
                 extensions =
                 {
-                    recent_files =
-                    {
-                        show_current_file = true,
-                    },
                 },
             })
 
