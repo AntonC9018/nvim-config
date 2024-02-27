@@ -251,23 +251,19 @@ local plugins =
                 vim.cmd.Telescope()
             end, {})
             vim.keymap.set("n", "<leader>sp", builtin.find_files, {})
-            vim.keymap.set("n", "<leader>sP", builtin.oldfiles, {})
             vim.keymap.set("n", "<leader>sf", function()
                 builtin.live_grep({
                     grep_open_files = false
                 })
             end, {})
             -- TODO: search and replace
+            vim.keymap.set("n", "<leader><leader>", builtin.lsp_workspace_symbols, {})
             vim.keymap.set("n", "<leader>ss", builtin.lsp_workspace_symbols, {})
             vim.keymap.set("n", "<leader>sh", builtin.help_tags, {})
-            vim.keymap.set("n", "<leader><leader>", function()
-                vim.cmd("Telescope cmdline")
-            end, {})
-            vim.keymap.set("n", "<leader>h<leader>", builtin.command_history, {})
+            vim.keymap.set("n", "<leader>hm", builtin.command_history, {})
             vim.keymap.set("n", "<leader>hf", builtin.search_history, {})
             vim.keymap.set("n", "<leader>sj", builtin.jumplist, {})
             vim.keymap.set("n", "<leader>sk", builtin.keymaps, {})
-            vim.keymap.set("n", "<leader>sd", builtin.diagnostics, {})
             vim.keymap.set("n", "gu", builtin.lsp_references, {})
             vim.keymap.set("n", "gi", builtin.lsp_implementations, {})
             vim.keymap.set("n", "gt", builtin.lsp_type_definitions, {})
@@ -299,7 +295,7 @@ local plugins =
                 set('h', api.node.navigate.parent_close, "Fold parent")
                 set('<C-i>', api.node.show_info_popup, "Show info")
                 set('<F2>', api.fs.rename_basename, "Rename")
-                set('r', api.fs.rename, "Rename (all)")
+                -- set('r', api.fs.rename, "Rename (all)")
                 set('<2-LeftMouse>', api.node.open.edit, "Edit")
                 set('o', function()
                     local lib = require("nvim-tree.lib")
@@ -320,7 +316,7 @@ local plugins =
                 set('L', api.tree.expand_all, "Expand all")
                 set('H', api.tree.collapse_all, "Collapse all")
                 set('<C-r>', api.tree.reload, "Reload")
-                set('R', api.fs.copy.relative_path, "Copy relative path")
+                set('r', api.fs.copy.relative_path, "Copy relative path")
                 set('P', api.fs.copy.absolute_path, "Copy absolute path")
                 set('a', api.fs.create, "Create file or directory (append / at end for a directory)")
                 set('R', api.node.run.system, "Run (system)")
@@ -886,9 +882,8 @@ local plugins =
                 {
                     require("copilot_cmp.comparators").prioritize,
 
-                    -- Below is the default comparitor list and order for nvim-cmp
                     cmp.config.compare.offset,
-                    -- cmp.config.compare.scopes, --this is commented in nvim-cmp too
+                    -- cmp.config.compare.scopes,
                     cmp.config.compare.exact,
                     cmp.config.compare.score,
                     cmp.config.compare.recently_used,
@@ -960,6 +955,14 @@ local plugins =
                 experimental =
                 {
                     ghost_test = true,
+                },
+                matching =
+                {
+                    disallow_fuzzy_matching = false,
+                    disallow_partial_fuzzy_matching = false,
+                    disallow_fullfuzzy_matching = false,
+                    disallow_partial_matching = false,
+                    disallow_prefix_unmatching = false,
                 },
             })
 
@@ -1290,9 +1293,7 @@ table.insert(plugins,
 {
     "mbbill/undotree",
     init = function()
-        vim.keymap.set("n", "<leader>h", ":UndotreeToggle<CR>")
-
-
+        vim.keymap.set("n", "<leader>hd", ":UndotreeToggle<CR>")
     end,
 })
 
