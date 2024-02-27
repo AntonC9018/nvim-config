@@ -49,6 +49,7 @@ local plugins =
                 },
                 sync_install = false,
                 auto_install = true,
+                -- indent = { enable = true },
 
                 highlight =
                 {
@@ -237,6 +238,13 @@ local plugins =
                     end,
                     dynamic_preview_title = true,
                 },
+                extensions =
+                {
+                    recent_files =
+                    {
+                        show_current_file = true,
+                    },
+                },
             })
 
             require("telescope").load_extension('cmdline')
@@ -259,14 +267,8 @@ local plugins =
             vim.keymap.set("n", "<leader><leader>", function()
                 vim.cmd("Telescope cmdline")
             end, {})
-            -- vim.keymap.set("n", "<leader>h<leader>", builtin.command_history, {})
-            -- vim.keymap.set("n", "<leader>hf", builtin.search_history, {})
-            vim.keymap.set({ "n", "i", "v" }, "<C-e>", function()
-                builtin.buffers({
-                    sort_lastused = true,
-                    bufnr_width = 0,
-                })
-            end, {})
+            vim.keymap.set("n", "<leader>h<leader>", builtin.command_history, {})
+            vim.keymap.set("n", "<leader>hf", builtin.search_history, {})
             vim.keymap.set("n", "<leader>sj", builtin.jumplist, {})
             vim.keymap.set("n", "<leader>sk", builtin.keymaps, {})
             vim.keymap.set("n", "<leader>sd", builtin.diagnostics, {})
@@ -741,7 +743,7 @@ local plugins =
 
             vim.keymap.set("n", "ge", function()
                 vim.diagnostic.goto_next()
-            end, opts);
+            end);
             vim.keymap.set("n", "gE", function()
                 vim.diagnostic.goto_prev()
             end);
@@ -1317,6 +1319,53 @@ table.insert(plugins,
         vim.keymap.set("n", "[c", function()
             context.go_to_context(vim.v.count1)
         end, { silent = true })
+    end,
+})
+
+table.insert(plugins,
+{
+    "danielfalk/smart-open.nvim",
+    branch = "0.2.x",
+    enabled = false,
+    dependencies =
+    {
+        "kkharji/sqlite.lua",
+        "nvim-telescope/telescope.nvim",
+    },
+    config = function()
+        if vim.fn.has("win32") then
+            -- The slashes must be /
+            vim.g.sqlite_clib_path = "D:/bin/sqlite3.dll"
+        end
+
+        local telescope = require("telescope")
+        telescope.load_extension("smart_open")
+    end,
+    init = function()
+        local telescope = require("telescope")
+        vim.keymap.set({ "n", "c", "i" }, "<C-e>", function()
+            telescope.extensions.smart_open.smart_open()
+        end)
+    end,
+});
+
+table.insert(plugins,
+{
+    "AntonC9018/telescope-recent-files",
+    -- dev = true,
+    branch = "return-picker",
+    dependencies =
+    {
+        "nvim-telescope/telescope.nvim",
+    },
+    config = function()
+        require("telescope").load_extension("recent_files")
+    end,
+    init = function()
+        -- local recent_files = require('recent_files')
+        vim.keymap.set({ "n", "i", "c" }, "<C-e>", function()
+            local picker = require("telescope").extensions.recent_files.pick()
+        end)
     end,
 })
 

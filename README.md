@@ -6,3 +6,5 @@ At this point I might want to migrate my work to Linux though, having a package
 manager and not having to deal with Windows stuff would be nice.
 
 Install the nerd font `SauceCode` from [here](https://www.programmingfonts.org/#source-code-pro)
+
+You need [Sqlite](https://www.sqlite.org/download.html) for [this](https://github.com/danielfalk/smart-open.nvim).
