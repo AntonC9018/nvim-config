@@ -973,8 +973,6 @@ local plugins =
                 {
                     { name = 'git' },
                     { name = 'copilot' },
-                },
-                {
                     { name = 'buffer' },
                 })
             })

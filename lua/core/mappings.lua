@@ -30,8 +30,8 @@ vim.keymap.set("n", "L", "zo")
 vim.keymap.set("n", "H", "zc")
 
 vim.keymap.set("v", ">", ">" .. helper.lastTextChange())
-vim.keymap.set("v", "<", "<gv" .. helper.lastTextChange())
-vim.keymap.set("v", "=", "=gv" .. helper.lastTextChange())
+vim.keymap.set("v", "<", "<" .. helper.lastTextChange())
+vim.keymap.set("v", "=", "=" .. helper.lastTextChange())
 
 -- Toggle highlight
 vim.keymap.set("n", "<leader>ht", function()
@@ -203,3 +203,6 @@ vim.keymap.set("n", "<leader><CR>", function()
         end
     end
 end)
+
+vim.keymap.set({ "n", "v" }, [[<M-\>]], [[:s/\//\\/g<CR>]])
+vim.keymap.set({ "n", "v" }, [[<M-/>]], [[:s/\\/\//g<CR>]])
