@@ -51,3 +51,6 @@ vim.filetype.add(
         ['.*/MSVC/[^/]*/include/.*'] = 'cpp',
     },
 })
+
+
+vim.g.tex_fold_enabled = true

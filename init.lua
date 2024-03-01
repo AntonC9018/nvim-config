@@ -1125,14 +1125,6 @@ end
 
 table.insert(plugins,
 {
-    'uga-rosa/utf8.nvim',
-    config = function(_)
-        -- registerLangmaps()
-    end
-})
-
-table.insert(plugins,
-{
     "loctvl842/monokai-pro.nvim",
     dependencies =
     {
@@ -1253,6 +1245,7 @@ table.insert(plugins,
                 {
                     'filename',
                     'encoding',
+                    'filetype',
                     function()
                         return copilotStatus.status_string()
                     end,
@@ -1295,7 +1288,8 @@ table.insert(plugins,
     end,
 })
 
-vim.api.nvim_create_autocmd("ColorScheme", {
+vim.api.nvim_create_autocmd("ColorScheme",
+{
     callback = function()
         vim.cmd.highlight("MatchParen guibg=#555599 guisp=Blue")
     end
@@ -1320,8 +1314,8 @@ table.insert(plugins,
 table.insert(plugins,
 {
     "danielfalk/smart-open.nvim",
-    branch = "0.2.x",
     enabled = false,
+    branch = "0.2.x",
     dependencies =
     {
         "kkharji/sqlite.lua",
@@ -1359,6 +1353,7 @@ table.insert(plugins,
     init = function()
         -- local recent_files = require('recent_files')
         vim.keymap.set({ "n", "i", "c" }, "<C-e>", function()
+            ---@diagnostic disable-next-line: unused-local
             local picker = require("telescope").extensions.recent_files.pick()
         end)
     end,
