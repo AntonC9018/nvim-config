@@ -666,13 +666,18 @@ local plugins =
                             filePath = vim.fn.expand("$XDG_CONFIG_HOME") .. "/clangd/config.yaml"
                         end
 
+                        local dirPath = vim.fn.fnamemodify(filePath, ":h")
+                        if not vim.loop.fs_stat(dirPath) then
+                            vim.fn.mkdir(dirPath, "p")
+                        end
+
                         if not vim.loop.fs_stat(filePath) then
                             vim.fn.writefile(
                                 {
-                                    "If:",
-                                    "  Path-Match: '.*\\.cpp'",
-                                    "  CompileFlags:",
-                                    "    Add: [ '-std=c++20', '-Wall' ]",
+                                    [[CompileFlags:]],
+                                    [[If:]],
+                                    [[Path-Match: ".*\.cpp"]],
+                                    [[Add: [ "-std=c++20", "-Wall" ] ]],
                                 },
                                 filePath)
                             end
