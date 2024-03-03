@@ -123,6 +123,9 @@ function M.parse(path)
     local result = {}
     result.drive = drive
     result.segments = {}
+    result.is_rooted = drive ~= nil
+        -- Hack for unix?
+        or #path > 0 and path[1] == '/'
 
     if drive ~= nil then
         if string.len(path) == string.len(drive) then

@@ -68,8 +68,10 @@ vim.keymap.set("", "<C-=>", function()
     helper.updateCurrentFontSize(1)
 end)
 
+
 -- Regular text editing commands
-vim.keymap.set({ "i", "c" }, helper.controlBackspace(), "<C-w>")
+vim.keymap.set({ "i", "c" }, "<C-h>", "<C-w>")
+vim.keymap.set({ "i", "c" }, "<C-BS>", "<C-w>")
 vim.keymap.set({ "i", "c" }, "<C-del>", "<C-o>de")
 vim.keymap.set({ "i" }, "<C-z>", "<C-o>u")
 vim.keymap.set({ "i" }, "<C-y>", "<C-o><C-r>")

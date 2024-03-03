@@ -4,6 +4,7 @@ local helper = require("core.helper")
 
 do
     local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
+    ---@diagnostic disable-next-line: undefined-field
     if not vim.loop.fs_stat(lazypath) then
         vim.fn.system({
             "git",
@@ -14,6 +15,7 @@ do
             lazypath,
         })
     end
+    ---@diagnostic disable-next-line: undefined-field
     vim.opt.rtp:prepend(lazypath)
 end
 
@@ -150,7 +152,8 @@ local plugins =
                             ["<M-q>"] = false,
                             [helper.controlSlash()] = false,
                             ["<C-w>"] = deleteWordBack,
-                            [helper.controlBackspace()] = deleteWordBack,
+                            ["<C-BS>"] = deleteWordBack,
+                            ["<C-h>"] = deleteWordBack,
                             ["<C-r><C-w>"] = false,
                             ["<C-u>"] = false,
                             ["<C-d>"] = false,
@@ -164,12 +167,6 @@ local plugins =
                             ["<CR>"] = actions.select_default,
                             ["<C-p>"] = require('telescope.actions').cycle_history_next,
                             ["<C-n>"] = require('telescope.actions').cycle_history_prev,
-                            ["<C-h>"] = function()
-                                vim.api.nvim_input("<Left>")
-                            end,
-                            ["<C-l>"] = function()
-                                vim.api.nvim_input("<Right>")
-                            end,
                         },
                         n =
                         {
@@ -281,7 +278,8 @@ local plugins =
 
             local function onAttach(bufnr)
                 local function set(binding, action, desc)
-                    vim.keymap.set('n', binding, action, {
+                    vim.keymap.set('n', binding, action,
+                    {
                         buffer = bufnr,
                         desc = desc,
                     })
@@ -326,11 +324,13 @@ local plugins =
 
                 -- Doesn't work
                 local timeoutLenOption = vim.o.timeoutlen
+                ---@diagnostic disable-next-line: inject-field
                 vim.o.timeoutlen = 1
                 vim.api.nvim_create_autocmd("BufEnter",
                 {
                     buffer = bufnr,
                     callback = function()
+                        ---@diagnostic disable-next-line: inject-field
                         vim.o.timeoutlen = 1
                     end,
                 })
@@ -338,6 +338,7 @@ local plugins =
                 {
                     buffer = bufnr,
                     callback = function()
+                        ---@diagnostic disable-next-line: inject-field
                         vim.o.timeoutlen = timeoutLenOption
                     end,
                 })
@@ -350,6 +351,10 @@ local plugins =
                     open_file =
                     {
                         quit_on_open = true,
+                        window_picker =
+                        {
+                            enable = false,
+                        },
                     },
                 },
                 on_attach = onAttach,
@@ -403,6 +408,7 @@ local plugins =
                     relativenumber = true,
                     width = "100%",
                 },
+                select_prompts = true,
             })
 
             local tree = require('nvim-tree.api').tree
@@ -442,7 +448,9 @@ local plugins =
         url = "https://github.com/AntonC9018/nvim-ufo",
         branch = "ts-refactor",
         config = function()
+            ---@diagnostic disable-next-line: inject-field
             vim.o.foldlevel = 99
+            ---@diagnostic disable-next-line: inject-field
             vim.o.foldlevelstart = 99
 
             local ufo = require('ufo');
@@ -610,64 +618,17 @@ local plugins =
         dependencies =
         {
             "williamboman/mason.nvim",
+            "folke/neodev.nvim",
         },
         config = function(_)
             local lspconfig = require('lspconfig')
 
+            require("neodev").setup({
+                -- add any options here, or leave empty to use the default settings
+            })
+
             lspconfig.lua_ls.setup(
             {
-                on_init = function(client)
-                    local path = client.workspace_folders[1].name
-
-                    if
-                        not vim.loop.fs_stat(path .. '/.luarc.json')
-                        and not vim.loop.fs_stat(path .. '/.luarc.jsonc')
-                    then
-                        local lazyConfig = require("lazy.core.config")
-                        local lazyPath = lazyConfig.options.root;
-
-                        local libraries =
-                        {
-                            vim.env.VIMRUNTIME,
-                            lazyPath,
-                        }
-
-                        local lazy = require("lazy")
-                        local plugins = lazy.plugins()
-                        for _, plugin in ipairs(plugins) do
-                            table.insert(libraries, plugin.dir)
-                        end
-
-                        -- TODO: figure out autocommands to modify this list dynamically.
-
-                        local settings = vim.tbl_deep_extend(
-                            'force',
-                            client.config.settings,
-                            {
-                                Lua =
-                                {
-                                    runtime =
-                                    {
-                                        version = 'LuaJIT',
-                                    },
-                                    workspace =
-                                    {
-                                        checkThirdParty = false,
-                                        library = libraries,
-                                    },
-                                },
-                            })
-                        client.config.settings = settings
-
-                        -- wtach the lazy directory with plugins
-
-                        client.notify("workspace/didChangeConfiguration",
-                        {
-                            settings = settings,
-                        })
-                    end
-                    return true
-                end
             })
 
             lspconfig.zls.setup(
@@ -679,21 +640,45 @@ local plugins =
 
             lspconfig.clangd.setup(
             {
-                -- TODO: Create a config file if it doesn't exist:
-                --
-                -- https://clangd.llvm.org/config#files
-                --
-                -- CompileFlags:
-                --   Add: [ "-std=c++20", "-Wall" ]
-                --
-                -- TODO: Automatically create a formatter config if it doesn't exist:
-                --
-                -- https://clang.llvm.org/docs/ClangFormatStyleOptions.html
-                --
-                -- BasedOnStyle: Microsoft
-                -- IndentWidth: 4
-                -- SortIncludes: SI_Never
-                --
+                on_init = function(_)
+                    do
+                        -- https://clang.llvm.org/docs/ClangFormatStyleOptions.html
+                        local filePath = vim.fn.expand("~/.clang-format")
+                        if not vim.loop.fs_stat(filePath) then
+                            vim.fn.writefile(
+                                {
+                                    "BasedOnStyle: Microsoft",
+                                    "IndentWidth: 4",
+                                    "SortIncludes: SI_Never",
+                                },
+                                filePath)
+                        end
+                    end
+
+                    do
+                        -- https://clangd.llvm.org/config#files
+                        local filePath
+                        if vim.fn.has("win32") == 1 then
+                            filePath = vim.fn.expand("$LocalAppData") .. "\\clangd\\config.yaml"
+                        else if vim.fn.has("mac") == 1 then
+                            filePath = vim.fn.expand("~/Library/Preferences/clangd/config.yaml")
+                        else
+                            filePath = vim.fn.expand("$XDG_CONFIG_HOME") .. "/clangd/config.yaml"
+                        end
+
+                        if not vim.loop.fs_stat(filePath) then
+                            vim.fn.writefile(
+                                {
+                                    "If:",
+                                    "  Path-Match: '.*\\.cpp'",
+                                    "  CompileFlags:",
+                                    "    Add: [ '-std=c++20', '-Wall' ]",
+                                },
+                                filePath)
+                            end
+                        end
+                    end
+                end,
                 capabilities =
                 {
                     offsetEncoding = "utf-8",
@@ -704,6 +689,7 @@ local plugins =
             {
                 group = vim.api.nvim_create_augroup('UserLspConfig', {}),
                 callback = function(ev)
+                    ---@diagnostic disable-next-line: inject-field
                     vim.bo[ev.buf].omnifunc = 'v:lua.vim.lsp.omnifunc'
 
                     local opts = { buffer = ev.buf }
@@ -1119,6 +1105,7 @@ local function registerLangmaps()
     end
 
     local completeLangmap = table.concat(temp, ",")
+    ---@diagnostic disable-next-line: inject-field
     vim.o.langmap = completeLangmap
     -- vim.o.langremap = false
 end
