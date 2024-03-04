@@ -285,6 +285,35 @@ local plugins =
                     })
                 end
 
+                -- Need to work around, because explorer.exe can only open 1 directory deep.
+                local function getParentPathAndFileName()
+                    local lib = require("nvim-tree.lib")
+                    local node = lib.get_node_at_cursor()
+                    if node == nil then
+                        return nil
+                    end
+                    local absolutePath = node.absolute_path
+                    local plenary = require("plenary.path")
+                    local path = plenary:new(absolutePath);
+                    if path:is_dir() then
+                        return vim.fn.shellescape(absolutePath), nil
+                    else
+                        local directoryPath = path:parent():absolute()
+                        local name = path:make_relative(directoryPath)
+                        return vim.fn.shellescape(directoryPath), vim.fn.shellescape(name)
+                    end
+                end
+
+                -- action is either "select" or "start"
+                local function doExplorer(action)
+                    local directoryPath, fileName = getParentPathAndFileName()
+                    if fileName == nil then
+                        vim.cmd("silent !cd " .. directoryPath .. "; explorer.exe")
+                    else
+                        vim.cmd("silent !cd " .. directoryPath .. "; explorer.exe /" .. action .. "," .. fileName)
+                    end
+                end
+
                 set('<Esc>', api.tree.close, "Close")
                 set('q', api.tree.close, "Close")
                 set('d', api.tree.change_root_to_node, "Change directory")
@@ -296,12 +325,7 @@ local plugins =
                 -- set('r', api.fs.rename, "Rename (all)")
                 set('<2-LeftMouse>', api.node.open.edit, "Edit")
                 set('o', function()
-                    local lib = require("nvim-tree.lib")
-                    local node = lib.get_node_at_cursor()
-                    if node == nil then
-                        return
-                    end
-                    vim.cmd("silent !start explorer.exe /select," .. vim.fn.shellescape(node.absolute_path))
+                    doExplorer("select")
                 end, "Open in Explorer")
                 set("y", api.fs.copy.node, "Copy")
                 set("x", api.fs.cut, "Cut")
@@ -317,7 +341,10 @@ local plugins =
                 set('r', api.fs.copy.relative_path, "Copy relative path")
                 set('P', api.fs.copy.absolute_path, "Copy absolute path")
                 set('a', api.fs.create, "Create file or directory (append / at end for a directory)")
-                set('R', api.node.run.system, "Run (system)")
+                -- set('R', api.node.run.system, "Run (system)")
+                set('R', function()
+                    doExplorer("start")
+                end, "Run (system)")
                 set('Y', api.fs.copy.filename, "Copy filename")
                 set('<C-g>', api.tree.toggle_help, "Help")
                 set('e', api.tree.close, "Close")
@@ -408,7 +435,7 @@ local plugins =
                     relativenumber = true,
                     width = "100%",
                 },
-                select_prompts = true,
+                -- select_prompts = true,
             })
 
             local tree = require('nvim-tree.api').tree
@@ -800,7 +827,7 @@ local plugins =
 
             local defaultSources = cmp.config.sources(
             {
-                { name = 'copilot' },
+                -- { name = 'copilot' },
                 {
                     name = "nvim_lsp",
 
