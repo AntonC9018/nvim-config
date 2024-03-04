@@ -299,6 +299,7 @@ local plugins =
                         return vim.fn.shellescape(absolutePath), nil
                     else
                         local directoryPath = path:parent():absolute()
+                        -- There's no function for getting the last segment, so working around, again.
                         local name = path:make_relative(directoryPath)
                         return vim.fn.shellescape(directoryPath), vim.fn.shellescape(name)
                     end
@@ -308,7 +309,7 @@ local plugins =
                 local function doExplorer(action)
                     local directoryPath, fileName = getParentPathAndFileName()
                     if fileName == nil then
-                        vim.cmd("silent !cd " .. directoryPath .. "; explorer.exe")
+                        vim.cmd("silent !cd " .. directoryPath .. "; explorer.exe .")
                     else
                         vim.cmd("silent !cd " .. directoryPath .. "; explorer.exe /" .. action .. "," .. fileName)
                     end
