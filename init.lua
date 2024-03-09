@@ -659,11 +659,36 @@ local plugins =
             {
             })
 
+            -- https://github.com/LuaLS/lua-language-server/issues/1596#issuecomment-1855087288
+            lspconfig.util.on_setup = lspconfig.util.add_hook_after(lspconfig.util.on_setup, function(config)
+                if config.name == 'lua_ls' then
+                    -- workaround for nvim's incorrect handling of scopes in the workspace/configuration handler
+                    -- https://github.com/folke/neodev.nvim/issues/41
+                    -- https://github.com/LuaLS/lua-language-server/issues/1089
+                    -- https://github.com/LuaLS/lua-language-server/issues/1596
+                    config.handlers = vim.tbl_extend('error', {}, config.handlers)
+                    config.handlers['workspace/configuration'] = function(...)
+                        local _, result, ctx = ...
+                        local client_id = ctx.client_id
+                        local client = vim.lsp.get_client_by_id(client_id)
+                        if client and client.workspace_folders and #client.workspace_folders then
+                            if result.items and #result.items > 0 then
+                                if not result.items[1].scopeUri then
+                                    return vim.tbl_map(function(_) return nil end, result.items)
+                                end
+                            end
+                        end
+
+                        return vim.lsp.handlers['workspace/configuration'](...)
+                    end
+                end
+            end)
+
             lspconfig.zls.setup(
             {
                 on_init = function(_)
                     vim.g.zig_fmt_autosave = false
-                end
+                end,
             })
 
             lspconfig.clangd.setup(
@@ -842,28 +867,11 @@ local plugins =
                 { name = 'buffer' },
             })
 
-            local globalCompletionTarget
-            local function tryResetCompletionTarget(completionTarget)
-                if not cmp.visible() then
-                    globalCompletionTarget = completionTarget
-                    return true
-                end
-
-                if globalCompletionTarget == completionTarget then
-                    return false
-                end
-                globalCompletionTarget = completionTarget
-                return true
-            end
-
-
             local defaultMapping =
             {
                 ['<C-Space>'] = function(_)
-                    local isRegular = tryResetCompletionTarget('regular')
-                    cmp.abort()
-                    if not isRegular then
-                        return
+                    if cmp.visible() then
+                        cmp.abort()
                     end
                     cmp.complete()
                 end,
@@ -937,10 +945,8 @@ local plugins =
                     defaultMapping,
                     {
                         ["<C-\\>"] = function(_)
-                            local isCopilot = tryResetCompletionTarget('copilot')
-                            cmp.abort()
-                            if not isCopilot then
-                                return
+                            if cmp.visible() then
+                                cmp.abort()
                             end
                             cmp.complete(
                             {
@@ -973,7 +979,7 @@ local plugins =
                 sorting = defaultSorting,
                 experimental =
                 {
-                    ghost_test = true,
+                    ghost_text = true,
                 },
                 matching =
                 {
@@ -1142,6 +1148,8 @@ local function registerLangmaps()
     vim.o.langmap = completeLangmap
     -- vim.o.langremap = false
 end
+
+registerLangmaps()
 
 table.insert(plugins,
 {
