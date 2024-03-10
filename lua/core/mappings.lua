@@ -210,3 +210,5 @@ vim.keymap.set({ "n", "v" }, [[<M-\>]], [[:s/\//\\/g<CR>]])
 vim.keymap.set({ "n", "v" }, [[<M-/>]], [[:s/\\/\//g<CR>]])
 
 vim.keymap.set("n", "<M-v>", "<C-v>")
+
+vim.keymap.set("c", "<Esc>", "<C-c>")
