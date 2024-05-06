@@ -100,6 +100,7 @@ local function registerRomanianKeys()
     local capitalLetters = { 'Ă', 'Î', 'Â', 'Ș', 'Ț' }
     local t = { mode = { 'i', 'c' } }
 
+
     for i, key in ipairs(keys) do
         t.key = key
         t.action = letters[i]

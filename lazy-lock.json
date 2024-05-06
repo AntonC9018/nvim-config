@@ -1,6 +1,7 @@
 {
   "LuaSnip": { "branch": "master", "commit": "2dbef19461198630b3d7c39f414d09fb07d1fdd2" },
   "bufferize.vim": { "branch": "main", "commit": "ec7c4445a97f19e5784a6fb6ad3c3d4a8ff505ac" },
+  "bufjump.nvim": { "branch": "master", "commit": "ae2728a77defbd27e9e5ef64c854fb0813ffba01" },
   "cmp-buffer": { "branch": "main", "commit": "3022dbc9166796b644a841a02de8dd1cc1d311fa" },
   "cmp-cmdline": { "branch": "main", "commit": "8ee981b4a91f536f52add291594e89fb6645e451" },
   "cmp-git": { "branch": "main", "commit": "8d8993680d627c8f13bd85094eba84604107dbdd" },
@@ -11,6 +12,7 @@
   "copilot-status.nvim": { "branch": "main", "commit": "decbffa57732f3d257641aea1d5541dd4fe536f6" },
   "copilot.lua": { "branch": "master", "commit": "71382c2efec76647287d46a4fbe0ec8c9809e2ee" },
   "fugitive-azure-devops.vim": { "branch": "master", "commit": "f5fc65a35a08662f8f3b1df457cc37597004f43a" },
+  "harpoon": { "branch": "harpoon2", "commit": "a38be6e0dd4c6db66997deab71fc4453ace97f9c" },
   "hop.nvim": { "branch": "master", "commit": "1a1eceafe54b5081eae4cb91c723abd1d450f34b" },
   "lazy.nvim": { "branch": "main", "commit": "28126922c9b54e35a192ac415788f202c3944c9f" },
   "lualine-lsp-progress": { "branch": "master", "commit": "56842d097245a08d77912edf5f2a69ba29f275d7" },
@@ -40,7 +42,6 @@
   "undotree": { "branch": "master", "commit": "7df3be7a261ea31b528aa442b494fcb458f3d968" },
   "vim-commentary": { "branch": "master", "commit": "f67e3e67ea516755005e6cccb178bc8439c6d402" },
   "vim-fugitive": { "branch": "master", "commit": "e7bf502a6ae492f42a91d231864e25630286319b" },
-  "vim-matchup": { "branch": "master", "commit": "7f81ae12542b2a35819f0324895df9bd8626c8ba" },
   "vim-rhubarb": { "branch": "master", "commit": "ee69335de176d9325267b0fd2597a22901d927b1" },
   "vim-textobj-entire": { "branch": "master", "commit": "64a856c9dff3425ed8a863b9ec0a21dbaee6fb3a" },
   "vim-textobj-user": { "branch": "master", "commit": "41a675ddbeefd6a93664a4dc52f302fe3086a933" }

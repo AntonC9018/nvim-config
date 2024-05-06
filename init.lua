@@ -743,6 +743,8 @@ local plugins =
                 },
             })
 
+            lspconfig.tsserver.setup({})
+
             vim.api.nvim_create_autocmd('LspAttach',
             {
                 group = vim.api.nvim_create_augroup('UserLspConfig', {}),
@@ -1386,5 +1388,58 @@ table.insert(plugins,
         end)
     end,
 })
+
+table.insert(plugins,
+{
+    "ThePrimeagen/harpoon",
+    branch = "harpoon2",
+    dependencies = { "nvim-lua/plenary.nvim" },
+    config = function()
+        local harpoon = require("harpoon")
+
+        -- REQUIRED
+        harpoon:setup()
+        -- REQUIRED
+
+        vim.keymap.set("n", "<M-a>", function() harpoon:list():append() end)
+        vim.keymap.set("n", "<M-e>", function() harpoon.ui:toggle_quick_menu(harpoon:list()) end)
+
+        vim.keymap.set("n", "<M-1>", function() harpoon:list():select(1) end)
+        vim.keymap.set("n", "<M-2>", function() harpoon:list():select(2) end)
+        vim.keymap.set("n", "<M-3>", function() harpoon:list():select(3) end)
+        vim.keymap.set("n", "<M-4>", function() harpoon:list():select(4) end)
+
+        -- Toggle previous & next buffers stored within Harpoon list
+        vim.keymap.set("n", "<M-p>", function() harpoon:list():prev() end)
+        vim.keymap.set("n", "<M-S-p>", function() harpoon:list():next() end)
+    end,
+});
+
+table.insert(plugins,
+{
+    "kwkarlwang/bufjump.nvim",
+    config = function()
+        local opts = {
+            silent = true,
+            noremap = true,
+        };
+        local t = {
+            mode = { "i", "n" },
+            opts = opts,
+        };
+        local bufjump = require("bufjump");
+        local configs = {
+            { "H", bufjump.backward_same_buf },
+            { "L", bufjump.forward_same_buf },
+            { "J", bufjump.forward },
+            { "K", bufjump.backward },
+        };
+        for _, config in ipairs(configs) do
+            t.key = config[1]
+            t.action = function() config[2]() end
+            helper.altMacBinding(t);
+        end
+    end,
+});
 
 require("lazy").setup(plugins);
