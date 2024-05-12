@@ -26,6 +26,8 @@ function helper.modifyKey(modifier, key)
     return "<" .. modifier .. "-" .. key .. ">"
 end
 
+local altKeys = { "M", "D", "A" }
+
 --- Define mappings for alt key, command key, and meta key.
 helper.altMacBinding = function(table)
     local key = table.key
@@ -45,9 +47,10 @@ helper.altMacBinding = function(table)
 
     local opts = table.opts
 
-    vim.keymap.set(mode, helper.modifyKey('M', key), action, opts)
-    vim.keymap.set(mode, helper.modifyKey('D', key), action, opts)
-    vim.keymap.set(mode, helper.modifyKey('A', key), action, opts)
+    for _, altKey in ipairs(altKeys) do
+        local modifiedKey = helper.modifyKey(altKey, key)
+        vim.keymap.set(mode, modifiedKey, action, opts)
+    end
 end
 
 helper.windowMap = function(key, actionOpen, actionToggle, opts)

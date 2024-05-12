@@ -601,41 +601,6 @@ local plugins =
         end
     },
     {
-        "j-hui/fidget.nvim",
-        enabled = false,
-        dependencies =
-        {
-            "nvim-tree/nvim-tree.lua"
-        },
-        opts =
-        {
-            progress =
-            {
-                display =
-                {
-                    render_limit = 10,
-                    done_ttl = 5,
-                },
-            },
-            notification =
-            {
-                history_size = 128,
-                override_vim_notify = true,
-                view =
-                {
-                    stack_upwards = false,
-                },
-            },
-            integration =
-            {
-                ["nvim-tree"] =
-                {
-                    enable = true,
-                },
-            },
-        },
-    },
-    {
         "williamboman/mason.nvim",
         opts =
         {
@@ -755,13 +720,7 @@ local plugins =
                     local opts = { buffer = ev.buf }
 
                     vim.keymap.set('n', 'gD', vim.lsp.buf.declaration, opts)
-                    helper.altMacBinding(
-                    {
-                        mode = { 'n', 'i' },
-                        key = 'i',
-                        action = vim.lsp.buf.hover,
-                        opts = opts,
-                    })
+                    vim.keymap.set("n", "U", vim.lsp.buf.hover, opts)
                     helper.altMacBinding(
                     {
                         mode = { 'n', 'i' },
@@ -1256,6 +1215,7 @@ table.insert(plugins,
             options =
             {
                 component_separators = {'', ''},
+                section_separators = { left = '', right = ''},
             },
             sections =
             {
@@ -1313,6 +1273,7 @@ end
 table.insert(plugins,
 {
     "mbbill/undotree",
+    enabled = false,
     init = function()
         vim.keymap.set("n", "<leader>hd", ":UndotreeToggle<CR>")
     end,

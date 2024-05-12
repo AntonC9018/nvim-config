@@ -23,7 +23,28 @@ do
     mapSystemRegisterPaste("<leader>v", "p")
 end
 
-vim.keymap.set("n", "&", "v$")
+-- vim.keymap.set("n", "&", "v$")
+helper.altMacBinding({
+    key = "i",
+    mode = "n",
+    action = "bi",
+})
+helper.altMacBinding({
+    key = "o",
+    mode = "n",
+    action = "ea",
+})
+helper.altMacBinding({
+    key = "I",
+    mode = "n",
+    action = "Bi",
+})
+helper.altMacBinding({
+    key = "O",
+    mode = "n",
+    action = "Ea",
+})
+
 
 -- Folding
 vim.keymap.set("n", "L", "zo")
@@ -98,8 +119,9 @@ local function registerRomanianKeys()
     -- and writing one manually is a challenge for me right now.
     local capitalKeys = { '{', '}', '|', ':', '"' }
     local capitalLetters = { 'Ă', 'Î', 'Â', 'Ș', 'Ț' }
-    local t = { mode = { 'i', 'c' } }
-
+    local t = {
+        mode = { 'i', 'c' },
+    }
 
     for i, key in ipairs(keys) do
         t.key = key
