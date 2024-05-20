@@ -6,45 +6,23 @@ helper.altMacBinding({ mode = { 'i', 'n' }, key = "h", action = "<C-o>" })
 helper.altMacBinding({ mode = { 'i', 'n' }, key = "l", action = "<C-i>" })
 
 do
+    local systemClipboardRegisterReference = '"' .. helper.systemClipboardRegister
+
     local function mapSystemRegisterPaste(from, action)
-        local mapping = '"*' .. action
+        local mapping = systemClipboardRegisterReference .. action
         vim.keymap.set("n", from, mapping)
         vim.keymap.set("v", from, mapping .. 'gv')
     end
     local function mapSystemRegisterCopy(from, action)
-        vim.keymap.set("n", from, 'V"*' .. action)
-        vim.keymap.set("v", from, '"*' .. action)
+        vim.keymap.set("n", from, 'V' .. systemClipboardRegisterReference .. action)
+        vim.keymap.set("v", from, systemClipboardRegisterReference .. action)
     end
     mapSystemRegisterCopy("<leader>c", "y")
     mapSystemRegisterCopy("<leader>y", "y")
     mapSystemRegisterCopy("<leader>d", "d")
     mapSystemRegisterPaste("<leader>p", "p")
     mapSystemRegisterPaste("<leader>P", "P")
-    mapSystemRegisterPaste("<leader>v", "p")
 end
-
--- vim.keymap.set("n", "&", "v$")
-helper.altMacBinding({
-    key = "i",
-    mode = "n",
-    action = "bi",
-})
-helper.altMacBinding({
-    key = "o",
-    mode = "n",
-    action = "ea",
-})
-helper.altMacBinding({
-    key = "I",
-    mode = "n",
-    action = "Bi",
-})
-helper.altMacBinding({
-    key = "O",
-    mode = "n",
-    action = "Ea",
-})
-
 
 -- Folding
 vim.keymap.set("n", "L", "zo")
@@ -54,15 +32,19 @@ vim.keymap.set("v", ">", ">" .. helper.lastTextChange())
 vim.keymap.set("v", "<", "<" .. helper.lastTextChange())
 vim.keymap.set("v", "=", "=" .. helper.lastTextChange())
 
--- Toggle highlight
 vim.keymap.set("n", "<leader>ht", function()
     vim.o.hls = not vim.o.hls
-end)
+end, {
+    desc = "Toggle highlight",
+})
 
--- Word wrap
 vim.keymap.set("n", "ww", function()
     vim.o.wrap = not vim.o.wrap
-end)
+end, {
+    desc = "Toggle word wrap",
+})
+
+vim.keymap.set("n", "W", ":w<CR>")
 
 -- Window navigation
 vim.keymap.set("n", "<C-h>", "<C-W><C-h>")
@@ -77,11 +59,11 @@ vim.keymap.set('n', '<leader>tw', [[:%s/\s\+$//e<cr>]],
 
 vim.keymap.set('n', 'wo', '<C-W>o',
 {
-    desc = "Closes the goddamn floats, for Christ sake!",
+    desc = "Closes the floats",
 })
 vim.keymap.set('n', '<leader>*', helper.lastTextChange())
 
--- Changing font size (this won't work in the terminal I think)
+-- Changing font size (this won't work in the terminal)
 vim.keymap.set("", "<C-->", function()
     helper.updateCurrentFontSize(-1)
 end)
@@ -98,11 +80,18 @@ vim.keymap.set({ "i" }, "<C-z>", "<C-o>u")
 vim.keymap.set({ "i" }, "<C-y>", "<C-o><C-r>")
 
 vim.keymap.set("n", "<leader>wd", function()
-    vim.cmd("let @*=getcwd()")
-end)
+    vim.cmd("let @" .. helper.systemClipboardRegister .. "=getcwd()")
+end, {
+    desc = "Copy the current working directory to clipboard",
+})
+vim.keymap.set("n", "<leader>wc", function()
+    vim.cmd("cd %:h")
+end, {
+    desc = "Change the current working directory to the directory of the current file",
+})
 
 local function registerRomanianKeys()
-    -- Register binings to romanian letters
+    -- Register bindings to romanian letters
     local keys = { '[', ']', '\\', ';', '\'' }
     local letters = { 'ă', 'î', 'â', 'ș', 'ț' }
     -- I wanted to derive these automatically from the lowercase letters.
@@ -139,99 +128,20 @@ end
 registerRomanianKeys()
 
 vim.keymap.set("n", "gb", "`[")
-
-vim.keymap.set("n", "<leader><CR>", function()
-    local buf = vim.api.nvim_win_get_buf(0)
-    local cursor = vim.api.nvim_win_get_cursor(0)
-    local cursorRow = cursor[1]
-    local cursorCol = cursor[2]
-
-    local currentLine
-    do
-        local startRow = cursorRow
-        local startCol = 0
-        local endRow = cursorRow
-        local endCol = -1
-        local opts = {}
-        currentLine = vim.api.nvim_buf_get_text(
-            buf,
-            startRow,
-            startCol,
-            endRow,
-            endCol,
-            opts)[1]
-    end
-
-    -- 1. Go to the left until we find one of the outer characters.
-    local openingDelimiters = ".*([%(%{%['\"`])"
-    local leftSubstring = currentLine:sub(1, cursorCol)
-
-    local function findUrlStart(s)
-        local dStart, dEnd = string.find(s, openingDelimiters)
-        if dStart ~= nil then
-            return dStart, dEnd
-        end
-
-        local sStart, sEnd = string.find(s, ".*(%s)")
-        if sStart ~= nil then
-            return sStart, sEnd
-        end
-
-        return 1, nil
-    end
-
-    local leftStartCol, delimiterEndCol = findUrlStart(leftSubstring)
-
-    local rightSubstring = currentLine:sub(cursorCol + 1)
-
-    local rightEndCol
-    if delimiterEndCol ~= nil then
-        local matchedString = string.sub(leftSubstring, leftStartCol, delimiterEndCol)
-        local mappings =
-        {
-            ['('] = ')',
-            ['['] = ']',
-            ['{'] = '}',
-        }
-        local mapped = mappings[matchedString]
-        if mapped == nil then
-            mapped = matchedString
-        end
-
-        local rightDelimiterCol = string.find(rightSubstring, mapped)
-        if rightDelimiterCol ~= nil then
-            rightEndCol = rightDelimiterCol + cursorCol
-        else
-            rightEndCol = string.len(rightSubstring)
-        end
-    end
-
-    do
-        local startCol = leftStartCol
-        local endCol = rightEndCol + cursorCol
-        local wholeUrl = currentLine:sub(startCol, endCol)
-
-        -- Do the # syntax
-        local octothorpIndex = string.find(wholeUrl, ".*(#)")
-        local fileUrl
-        if octothorpIndex ~= nil then
-            fileUrl = string.sub(wholeUrl, 1, octothorpIndex - 1)
-        else
-            fileUrl = wholeUrl
-        end
-
-        -- check if the file exists by resolving the path
-        local folderOfCurrentBuffer = vim.fn.expand("%:p:h")
-        local fileInfo = vim.loop.fs_stat(fileUrl)
-        if fileInfo == nil then
-            -- open in browser
-        end
-    end
-end)
-
-vim.keymap.set({ "n", "v" }, [[<M-\>]], [[:s/\//\\/g<CR>]])
-vim.keymap.set({ "n", "v" }, [[<M-/>]], [[:s/\\/\//g<CR>]])
-
 vim.keymap.set("n", "<M-v>", "<C-v>")
-
 vim.keymap.set("c", "<Esc>", "<C-c>")
+
+vim.keymap.set("n", "<leader>xx", function()
+    vim.cmd(".lua")
+    print("Reloaded")
+end, {
+    desc = "Execute the current line",
+})
+-- A similar binding for insert mode that executes the selected lines
+vim.keymap.set("v", "<leader>x", function()
+    vim.cmd("'<,'>lua")
+    vim.api.nvim_input("<Esc>")
+    print("Reloaded")
+end, {
+    desc = "Execute selected lines",
+});

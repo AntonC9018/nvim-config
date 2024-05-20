@@ -1,5 +1,8 @@
 local helper = {}
 
+-- Won't work with * in tmux for some reason.
+helper.systemClipboardRegister = "+"
+
 function helper.isCmderTerminal()
     return os.getenv("CMDER_ROOT") ~= nil
 end
@@ -51,15 +54,6 @@ helper.altMacBinding = function(table)
         local modifiedKey = helper.modifyKey(altKey, key)
         vim.keymap.set(mode, modifiedKey, action, opts)
     end
-end
-
-helper.windowMap = function(key, actionOpen, actionToggle, opts)
-    if opts == nil
-    then
-        opts = {}
-    end
-    vim.keymap.set("n", "w"..key, actionOpen, opts)
-    vim.keymap.set("n", "wt"..key, actionToggle, opts)
 end
 
 local function spanEquals(s1, s2, s1Start, s1Length)

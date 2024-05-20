@@ -31,7 +31,7 @@ vim.o.cmdheight = 2
 
 vim.o.undofile = true
 
--- https://github.com/nguynkhn/dotfiles/blob/57e6ebdc5d9f76fcbfd49543cf198bb90b2a5f2d/.config/nvim/lua/autocmds.lua#L13-L22
+-- https://github.com/nguynkhn/dotfiles/blob/3b4c9b908d760d942c0ad29b68551604fe2a28ff/nvim/lua/autocmds.lua#L13-L22
 vim.api.nvim_create_autocmd("BufWritePre",
 {
     group = vim.api.nvim_create_augroup("auto_create_dir", { clear = true }),
@@ -52,5 +52,15 @@ vim.filetype.add(
     },
 })
 
+vim.api.nvim_create_autocmd("BufWritePost",
+{
+    pattern = { ".tmux.conf" },
+    callback = function()
+        vim.system({"tmux", "source-file", vim.fn.expand("%")})
+        print("Reloaded tmux")
+    end,
+})
 
 vim.g.tex_fold_enabled = true
+
+vim.opt.formatoptions:remove("o")

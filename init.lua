@@ -1,5 +1,6 @@
 require("core.editor")
 require("core.mappings")
+require("core.terminal")
 local helper = require("core.helper")
 
 do
@@ -349,6 +350,16 @@ local plugins =
                 set('Y', api.fs.copy.filename, "Copy filename")
                 set('<C-g>', api.tree.toggle_help, "Help")
                 set('e', api.tree.close, "Close")
+                set('W', function()
+                    local core = require("nvim-tree.core")
+                    local explorer = core.get_explorer()
+                    if (explorer == nil) then
+                        return
+                    end
+                    local newCwd = explorer.absolute_path
+                    local command = string.format(":cd %s", newCwd)
+                    vim.cmd(command)
+                end, "Change the current working directory to this")
 
                 -- Doesn't work
                 local timeoutLenOption = vim.o.timeoutlen
@@ -482,6 +493,7 @@ local plugins =
             vim.o.foldlevelstart = 99
 
             local ufo = require('ufo');
+            ---@diagnostic disable-next-line: missing-fields
             ufo.setup({
             })
         end,
@@ -1359,16 +1371,23 @@ table.insert(plugins,
         local harpoon = require("harpoon")
 
         -- REQUIRED
+        ---@diagnostic disable-next-line: missing-parameter
         harpoon:setup()
         -- REQUIRED
 
         vim.keymap.set("n", "<M-a>", function() harpoon:list():append() end)
         vim.keymap.set("n", "<M-e>", function() harpoon.ui:toggle_quick_menu(harpoon:list()) end)
 
-        vim.keymap.set("n", "<M-1>", function() harpoon:list():select(1) end)
-        vim.keymap.set("n", "<M-2>", function() harpoon:list():select(2) end)
-        vim.keymap.set("n", "<M-3>", function() harpoon:list():select(3) end)
-        vim.keymap.set("n", "<M-4>", function() harpoon:list():select(4) end)
+        for i = 1, 6 do
+            local str = tostring(i)
+            helper.altMacBinding({
+                key = str,
+                action = function()
+                    harpoon:list():select(i)
+                end,
+                mode = "n",
+            })
+        end
 
         -- Toggle previous & next buffers stored within Harpoon list
         vim.keymap.set("n", "<M-p>", function() harpoon:list():prev() end)
