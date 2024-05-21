@@ -113,7 +113,7 @@ function helper.updateCurrentFontSize(amount)
     helper.setGuiFont(currentFont)
 end
 
-local path = require("core.utils.path")
+local path = require("utils.path")
 
 function helper.formatPath(filePath)
     local parsedFilePath = path.parse(filePath);

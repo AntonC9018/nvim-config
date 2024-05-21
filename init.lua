@@ -1467,4 +1467,135 @@ table.insert(plugins,
     },
 })
 
+table.insert(plugins,
+{
+    "mfussenegger/nvim-dap",
+    dependencies =
+    {
+        "stevearc/overseer.nvim",
+        "Joakker/lua-json5",
+    },
+    init = function(plugin)
+        local dap = require("dap")
+
+        if false then
+            ---@diagnostic disable-next-line: undefined-field
+            dap.adapters.lldb =
+            {
+                type = "executable",
+                command = "lldb",
+                name = "lldb",
+            }
+
+            ---@diagnostic disable-next-line: undefined-field
+            dap.adapters.cppvsdbg =
+            {
+                type = "executable",
+                command = "vsdbg",
+                name = "cppvsdbg",
+            }
+        end
+
+        local path = require("utils.path")
+        do
+            local detached = vim.fn.has("win32") == 1
+
+            dap.adapters.codelldb =
+            {
+                type = "server",
+                port = "${port}",
+                executable =
+                {
+                    command = path.join(plugin.dir, "extension", "adapter", "codelldb"),
+                    args = { "--port", "{port}" },
+                    detached = detached,
+                },
+            }
+        end
+
+        local function cConfigs(compiler)
+            local program = function()
+                local currentFile = vim.api.nvim_buf_get_name(0)
+                local currentFileFolder = vim.fn.fnamemodify(currentFile, ":h")
+
+                -- do current file but remove the extension.
+                -- on windows, add .exe
+                local extension = vim.fn.has("win32") == 1 and ".exe" or nil
+                local outputFile = path.withExtension(currentFile, extension)
+
+                -- compile
+                vim.fn.system(
+                    "cd " .. vim.fn.shellescape(currentFileFolder)
+                    .. "; " .. compiler .. " -Wall -Werror -o "
+                    .. vim.fn.shellescape(outputFile)
+                    .. " " .. vim.fn.shellescape(currentFile))
+
+                -- execute
+                return outputFile
+            end
+
+            local result =
+            {
+                name = "Launch current file (Default)",
+                type = "lldb",
+                request = "launch",
+                program = program,
+            }
+            return { result }
+        end
+
+        dap.configurations.cpp = cConfigs("g++")
+        dap.configurations.c = cConfigs("gcc")
+        dap.configurations.zig =
+        {
+            name = "Zig run",
+            type = "lldb",
+            request = "launch",
+            program = function()
+                vim.system("zig build install")
+                -- find the first executable file in zig_out/bin
+                local workspaceDir = vim.fn.getcwd()
+                local outputPath = path.join(workspaceDir, "zig_out", "bin")
+                local files = vim.fn.readdir(outputPath)
+                for _, file in ipairs(files) do
+                    -- on windows, look for .exe
+                    local isWindows = vim.fn.has("win32") == 1
+                    if isWindows and string.find(file, ".exe") then
+                        return path.join(outputPath, file)
+                    end
+
+                    -- on linux, take the first file
+                    return path.join(outputPath, file)
+                end
+                error("No default output for the build command")
+            end,
+        }
+        do
+            local vscode = require("dap.ext.vscode")
+            vscode.json_decode = require("json5").parse
+            vscode.load_launchjs(nil, { codelldb = { "cpp", "c", "zig" } })
+        end
+
+        local function setSign(signName, symbol)
+            vim.fn.sign_define(signName,
+            {
+                text = symbol,
+                texthl = '',
+                linehl = '',
+                numhl = '',
+            })
+        end
+        setSign("DapBreakpoint", "🔴")
+        setSign("DapBreakpointConditional", "🟢")
+        setSign("DapBreakpointRejected", "🚫")
+        setSign("DapStopped", "👉")
+        setSign("DapLogPoint", "📜")
+
+        vim.keymap.set('n', '<F5>', function() require('dap').continue() end)
+        vim.keymap.set('n', '<F10>', function() require('dap').step_over() end)
+        vim.keymap.set('n', '<F11>', function() require('dap').step_into() end)
+        vim.keymap.set('n', '<F12>', function() require('dap').step_out() end)
+    end,
+})
+
 require("lazy").setup(plugins);
