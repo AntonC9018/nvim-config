@@ -1,7 +1,6 @@
 local M = {}
 
 ---The file system path separator for the current platform.
-<<<<<<< HEAD
 M.is_windows = vim.fn.has("win32") == 1 or vim.fn.has("win32unix") == 1
 if M.is_windows == true then
     M.path_separator = "\\"
@@ -12,14 +11,6 @@ else
 end
 M.any_path_separator_regex = "[\\/]"
 M.not_any_path_separator_regex = "[^\\/]"
-
-=======
-M.path_separator = "/"
-M.is_windows = vim.fn.has("win32") == 1 or vim.fn.has("win32unix") == 1
-if M.is_windows == true then
-  M.path_separator = "\\"
-end
->>>>>>> 5f95ac4 (Working on dap)
 
 ---Split string into a table of strings using a separator.
 ---@param inputString string The string to split.
@@ -46,11 +37,7 @@ function M.join(...)
   end
 
   local all_parts = {}
-<<<<<<< HEAD
   if type(args[1]) == "string" and args[1]:sub(1, 1) == M.path_separator then
-=======
-  if type(args[1]) =="string" and args[1]:sub(1, 1) == M.path_separator then
->>>>>>> 5f95ac4 (Working on dap)
     all_parts[1] = ""
   end
 
@@ -64,29 +51,21 @@ end
 --- @param path string
 --- @return string
 function M.getDirectoryPath(path)
-<<<<<<< HEAD
     local result = vim.fn.fnamemodify(path, ":h")
     if result == nil then
         error("Couldn't call vim function for path?")
     end
     return result
-=======
-    return vim.fn.fnamemodify(path, ":h")
->>>>>>> 5f95ac4 (Working on dap)
 end
 
 --- @param path string
 --- @return string
 function M.getFileNameWithoutExtension(path)
-<<<<<<< HEAD
     local result vim.fn.fnamemodify(path, ":t:r")
     if result == nil then
         error("Couldn't call vim function for path?")
     end
     return result
-=======
-    return vim.fn.fnamemodify(path, ":t:r")
->>>>>>> 5f95ac4 (Working on dap)
 end
 
 --- @param path string
@@ -94,13 +73,9 @@ end
 --- @return string
 function M.withExtension(path, newExtension)
     local filePathWithoutExtension = vim.fn.fnamemodify(path, ":r")
-<<<<<<< HEAD
     if filePathWithoutExtension == nil then
         error("Couldn't call vim function for path?")
     end
-
-=======
->>>>>>> 5f95ac4 (Working on dap)
     if newExtension == "" or newExtension == nil then
         return filePathWithoutExtension
     else
@@ -108,7 +83,6 @@ function M.withExtension(path, newExtension)
     end
 end
 
-<<<<<<< HEAD
 function M.normalize(path)
     local result = path:gsub(M.inactive_path_separator, M.path_separator)
     return result
@@ -223,6 +197,4 @@ function M.currentFileDirectoryPath()
     return vim.fn.expand("%:p:h")
 end
 
-=======
->>>>>>> 5f95ac4 (Working on dap)
 return M

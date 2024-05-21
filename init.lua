@@ -254,7 +254,6 @@ local plugins =
                     grep_open_files = false
                 })
             end, {})
-            -- TODO: search and replace
             vim.keymap.set("n", "<leader><leader>", builtin.lsp_workspace_symbols, {})
             vim.keymap.set("n", "<leader>ss", builtin.lsp_workspace_symbols, {})
             vim.keymap.set("n", "<leader>sh", builtin.help_tags, {})
@@ -628,9 +627,9 @@ local plugins =
         config = function(_)
             local lspconfig = require('lspconfig')
 
-            require("neodev").setup({
-                -- add any options here, or leave empty to use the default settings
-            })
+            -- require("neodev").setup({
+            --     -- add any options here, or leave empty to use the default settings
+            -- })
 
             lspconfig.lua_ls.setup(
             {
@@ -707,7 +706,7 @@ local plugins =
                                     [[CompileFlags:]],
                                     [[If:]],
                                     [[Path-Match: ".*\.cpp"]],
-                                    [[Add: [ "-std=c++20", "-Wall" ] ]],
+                                    [[Add: [ "-std=c++20", "-Wall", "-Wconversion", "-Werror" ] ]],
                                 },
                                 filePath)
                             end
@@ -881,16 +880,17 @@ local plugins =
                 {
                     require("copilot_cmp.comparators").prioritize,
 
+                    cmp.config.compare.kind,
+                    cmp.config.compare.exact,
+                    cmp.config.compare.order,
+
                     cmp.config.compare.offset,
                     -- cmp.config.compare.scopes,
-                    cmp.config.compare.exact,
                     cmp.config.compare.score,
                     cmp.config.compare.recently_used,
                     cmp.config.compare.locality,
-                    cmp.config.compare.kind,
                     cmp.config.compare.sort_text,
                     cmp.config.compare.length,
-                    cmp.config.compare.order,
                 },
             }
 
@@ -898,7 +898,7 @@ local plugins =
             cmp.setup(
             {
                 enabled = function()
-                    local bufType = vim.api.nvim_buf_get_option(0, "buftype")
+                    local bufType = vim.api.nvim_get_option_value("buftype", { buf = 0 })
                     if (bufType ~= "prompt") then
                         return true
                     end
@@ -1428,6 +1428,33 @@ table.insert(plugins,
         -- Toggle previous & next buffers stored within Harpoon list
         vim.keymap.set("n", "<M-p>", function() harpoon:list():prev() end)
         vim.keymap.set("n", "<M-S-p>", function() harpoon:list():next() end)
+    end,
+});
+
+table.insert(plugins,
+{
+    "kwkarlwang/bufjump.nvim",
+    config = function()
+        local opts = {
+            silent = true,
+            noremap = true,
+        };
+        local t = {
+            mode = { "i", "n" },
+            opts = opts,
+        };
+        local bufjump = require("bufjump");
+        local configs = {
+            { "H", bufjump.backward_same_buf },
+            { "L", bufjump.forward_same_buf },
+            { "J", bufjump.forward },
+            { "K", bufjump.backward },
+        };
+        for _, config in ipairs(configs) do
+            t.key = config[1]
+            t.action = config[2]
+            helper.altMacBinding(t);
+        end
     end,
 });
 
