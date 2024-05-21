@@ -25,6 +25,10 @@ function helper.lastTextChange()
     return '`[v`]'
 end
 
+function helper.visualRange()
+    return "'<,'>"
+end
+
 function helper.modifyKey(modifier, key)
     return "<" .. modifier .. "-" .. key .. ">"
 end
