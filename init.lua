@@ -820,7 +820,6 @@ local plugins =
             "zbirenbaum/copilot-cmp",
         },
         config = function(_)
-            -- Set up nvim-cmp.
             local cmp = require('cmp')
             require("copilot_cmp").setup()
 
@@ -898,6 +897,17 @@ local plugins =
             ---@diagnostic disable-next-line: missing-parameter
             cmp.setup(
             {
+                enabled = function()
+                    local bufType = vim.api.nvim_buf_get_option(0, "buftype")
+                    if (bufType ~= "prompt") then
+                        return true
+                    end
+                    local cmpDap = require("cmp_dap")
+                    if cmpDap.is_dap_buffer() then
+                        return true
+                    end
+                    return false
+                end,
                 snippet =
                 {
                     expand = function(args)
@@ -1024,6 +1034,20 @@ local plugins =
                 {
                     { name = 'cmdline' },
                 })
+            })
+
+            ---@diagnostic disable-next-line: undefined-field
+            cmp.setup.filetype(
+            {
+                'dap-repl',
+                'dapui-watches',
+                'dapui-hover',
+            },
+            {
+                sources =
+                {
+                    { name = 'dap' },
+                },
             })
         end,
     },
@@ -1160,6 +1184,10 @@ table.insert(plugins,
     end,
 })
 
+local function doNothing()
+    -- it's set up in the cmp setup
+end
+
 table.insert(plugins,
 {
     "zbirenbaum/copilot-cmp",
@@ -1167,9 +1195,17 @@ table.insert(plugins,
     {
         "zbirenbaum/copilot.lua",
     },
-    config = function()
-        -- set up in the cmp setup
-    end,
+    config = doNothing,
+})
+
+table.insert(plugins,
+{
+    "rcarriga/cmp-dap",
+    dependencies =
+    {
+        "mfussenegger/nvim-dap",
+    },
+    config = doNothing,
 })
 
 table.insert(plugins,
@@ -1264,7 +1300,7 @@ table.insert(plugins,
         vim.keymap.set({ 'n', 'v' }, '<leader>go', ':GBrowse<CR>')
         vim.keymap.set('n', '<leader>gbl', ':Git blame<CR>')
         vim.keymap.set('n', '<leader>gd', ':Gvdiffsplit<CR>')
-    end
+    end,
 })
 
 for _, name in ipairs({
@@ -1291,6 +1327,7 @@ table.insert(plugins,
     end,
 })
 
+<<<<<<< HEAD
 vim.api.nvim_create_autocmd("ColorScheme",
 {
     callback = function()
@@ -1397,29 +1434,11 @@ table.insert(plugins,
 
 table.insert(plugins,
 {
-    "kwkarlwang/bufjump.nvim",
-    config = function()
-        local opts = {
-            silent = true,
-            noremap = true,
-        };
-        local t = {
-            mode = { "i", "n" },
-            opts = opts,
-        };
-        local bufjump = require("bufjump");
-        local configs = {
-            { "H", bufjump.backward_same_buf },
-            { "L", bufjump.forward_same_buf },
-            { "J", bufjump.forward },
-            { "K", bufjump.backward },
-        };
-        for _, config in ipairs(configs) do
-            t.key = config[1]
-            t.action = function() config[2]() end
-            helper.altMacBinding(t);
-        end
-    end,
-});
+    "rcarriga/nvim-dap-ui",
+    dependencies =
+    {
+        "mfussenegger/nvim-dap",
+    },
+})
 
 require("lazy").setup(plugins);
