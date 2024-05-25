@@ -206,3 +206,9 @@ do
     bind("n", "%")
     bind("v", "")
 end
+
+vim.keymap.set("n", "wc", "q:", {
+    desc = "Show command history buffer",
+});
+
+vim.keymap.set("n", "<leader>th", ":Inspect<CR>")

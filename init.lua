@@ -28,6 +28,7 @@ local plugins =
     },
     {
         "nvim-treesitter/nvim-treesitter",
+        tag = "v0.9.2",
         dependencies =
         {
             "nvim-telescope/telescope-fzf-native.nvim",
@@ -287,6 +288,7 @@ local plugins =
     },
     {
         "nvim-tree/nvim-tree.lua",
+        tag = "v1.3.3",
         config = function(_)
             local api = require("nvim-tree.api")
 
@@ -645,6 +647,41 @@ local plugins =
             -- require("neodev").setup({
             --     -- add any options here, or leave empty to use the default settings
             -- })
+
+            lspconfig.gopls.setup(
+            {
+                settings = (function()
+                    local s = {}
+                    s.semanticTokens = true
+                    s.analyses = {
+                        unusedparams = true,
+                    }
+                    s.staticcheck = true
+                    s.hints = {
+                        assignVariableTypes = true,
+                        compositeLiteralFields = true,
+                        compositeLiteralTypes = true,
+                        constantValues = true,
+                        functionTypeParameters = true,
+                        parameterNames = true,
+                        rangeVariableTypes = true,
+                    }
+                    return { gopls = s }
+                end)(),
+                on_attach = function(client)
+                    local semantic = client.config.capabilities.textDocument.semanticTokens
+                    client.server_capabilities.semanticTokensProvider =
+                    {
+                        full = true,
+                        legend =
+                        {
+                            tokenModifiers = semantic.tokenModifiers,
+                            tokenTypes = semantic.tokenTypes,
+                        },
+                        range = true,
+                    }
+                end,
+            })
 
             lspconfig.lua_ls.setup(
             {
@@ -1170,11 +1207,20 @@ table.insert(plugins,
     {
         "nvim-treesitter/nvim-treesitter",
     },
-    config = function(_)
-        require("monokai-pro").setup(
-        {
-        })
-        vim.cmd("colorscheme monokai-pro")
+})
+
+table.insert(plugins,
+{
+    "folke/tokyonight.nvim",
+    opts =
+    {
+        styles = {
+            comments = { italic = false },
+            keywords = { italic = false },
+        },
+    },
+    init = function(_)
+        vim.cmd("colorscheme tokyonight-moon")
     end
 })
 
@@ -1363,6 +1409,7 @@ table.insert(plugins,
         vim.keymap.set("n", "[c", function()
             context.go_to_context(vim.v.count1)
         end, { silent = true })
+        vim.cmd("hi TreesitterContext  guibg=#202020");
     end,
 })
 
