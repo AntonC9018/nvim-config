@@ -63,5 +63,3 @@ vim.api.nvim_create_autocmd("BufWritePost",
 })
 
 vim.g.tex_fold_enabled = true
-
-vim.opt.formatoptions:remove("o")

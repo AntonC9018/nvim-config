@@ -12,7 +12,6 @@ end
 M.any_path_separator_regex = "[\\/]"
 M.not_any_path_separator_regex = "[^\\/]"
 
-
 ---Split string into a table of strings using a separator.
 ---@param inputString string The string to split.
 ---@param sep string The separator to use.
@@ -77,7 +76,6 @@ function M.withExtension(path, newExtension)
     if filePathWithoutExtension == nil then
         error("Couldn't call vim function for path?")
     end
-
     if newExtension == "" or newExtension == nil then
         return filePathWithoutExtension
     else

@@ -23,10 +23,15 @@ end
 local plugins =
 {
     {
+        'nvim-telescope/telescope-fzf-native.nvim',
+        build = 'cmake -S. -Bbuild -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release && cmake --install build --prefix build'
+    },
+    {
         "nvim-treesitter/nvim-treesitter",
+        tag = "v0.9.2",
         dependencies =
         {
-            -- "andymass/vim-matchup",
+            "nvim-telescope/telescope-fzf-native.nvim",
         },
         config = function()
             require('nvim-treesitter.configs').setup(
@@ -74,6 +79,8 @@ local plugins =
                 --     enable = true,
                 -- },
             })
+
+            vim.opt.formatoptions:remove("o")
         end,
     },
     {
@@ -238,10 +245,18 @@ local plugins =
                 },
                 extensions =
                 {
+                    fzf =
+                    {
+                        fuzzy = true,                    -- false will only do exact matching
+                        override_generic_sorter = true,  -- override the generic sorter
+                        override_file_sorter = true,     -- override the file sorter
+                        case_mode = "smart_case",        -- or "ignore_case" or "respect_case"
+                    },
                 },
             })
 
             require("telescope").load_extension('cmdline')
+            require('telescope').load_extension('fzf')
 
             local builtin = require("telescope.builtin")
 
@@ -254,7 +269,6 @@ local plugins =
                     grep_open_files = false
                 })
             end, {})
-            -- TODO: search and replace
             vim.keymap.set("n", "<leader><leader>", builtin.lsp_workspace_symbols, {})
             vim.keymap.set("n", "<leader>ss", builtin.lsp_workspace_symbols, {})
             vim.keymap.set("n", "<leader>sh", builtin.help_tags, {})
@@ -274,6 +288,7 @@ local plugins =
     },
     {
         "nvim-tree/nvim-tree.lua",
+        tag = "v1.3.3",
         config = function(_)
             local api = require("nvim-tree.api")
 
@@ -359,6 +374,7 @@ local plugins =
                     local newCwd = explorer.absolute_path
                     local command = string.format(":cd %s", newCwd)
                     vim.cmd(command)
+                    print("Changed CWD to " .. newCwd)
                 end, "Change the current working directory to this")
 
                 -- Doesn't work
@@ -628,8 +644,43 @@ local plugins =
         config = function(_)
             local lspconfig = require('lspconfig')
 
-            require("neodev").setup({
-                -- add any options here, or leave empty to use the default settings
+            -- require("neodev").setup({
+            --     -- add any options here, or leave empty to use the default settings
+            -- })
+
+            lspconfig.gopls.setup(
+            {
+                settings = (function()
+                    local s = {}
+                    s.semanticTokens = true
+                    s.analyses = {
+                        unusedparams = true,
+                    }
+                    s.staticcheck = true
+                    s.hints = {
+                        assignVariableTypes = true,
+                        compositeLiteralFields = true,
+                        compositeLiteralTypes = true,
+                        constantValues = true,
+                        functionTypeParameters = true,
+                        parameterNames = true,
+                        rangeVariableTypes = true,
+                    }
+                    return { gopls = s }
+                end)(),
+                on_attach = function(client)
+                    local semantic = client.config.capabilities.textDocument.semanticTokens
+                    client.server_capabilities.semanticTokensProvider =
+                    {
+                        full = true,
+                        legend =
+                        {
+                            tokenModifiers = semantic.tokenModifiers,
+                            tokenTypes = semantic.tokenTypes,
+                        },
+                        range = true,
+                    }
+                end,
             })
 
             lspconfig.lua_ls.setup(
@@ -688,7 +739,7 @@ local plugins =
                     do
                         -- https://clangd.llvm.org/config#files
                         local filePath
-                        if vim.fn.has("win32") == 1 then
+                        if helper.isWindows() then
                             filePath = vim.fn.expand("$LocalAppData") .. "\\clangd\\config.yaml"
                         else if vim.fn.has("mac") == 1 then
                             filePath = vim.fn.expand("~/Library/Preferences/clangd/config.yaml")
@@ -707,7 +758,7 @@ local plugins =
                                     [[CompileFlags:]],
                                     [[If:]],
                                     [[Path-Match: ".*\.cpp"]],
-                                    [[Add: [ "-std=c++20", "-Wall" ] ]],
+                                    [[Add: [ "-std=c++20", "-Wall", "-Wconversion", "-Werror" ] ]],
                                 },
                                 filePath)
                             end
@@ -820,7 +871,6 @@ local plugins =
             "zbirenbaum/copilot-cmp",
         },
         config = function(_)
-            -- Set up nvim-cmp.
             local cmp = require('cmp')
             require("copilot_cmp").setup()
 
@@ -882,22 +932,34 @@ local plugins =
                 {
                     require("copilot_cmp.comparators").prioritize,
 
+                    cmp.config.compare.kind,
+                    cmp.config.compare.exact,
+                    cmp.config.compare.order,
+
                     cmp.config.compare.offset,
                     -- cmp.config.compare.scopes,
-                    cmp.config.compare.exact,
                     cmp.config.compare.score,
                     cmp.config.compare.recently_used,
                     cmp.config.compare.locality,
-                    cmp.config.compare.kind,
                     cmp.config.compare.sort_text,
                     cmp.config.compare.length,
-                    cmp.config.compare.order,
                 },
             }
 
             ---@diagnostic disable-next-line: missing-parameter
             cmp.setup(
             {
+                enabled = function()
+                    local bufType = vim.api.nvim_get_option_value("buftype", { buf = 0 })
+                    if (bufType ~= "prompt") then
+                        return true
+                    end
+                    local cmpDap = require("cmp_dap")
+                    if cmpDap.is_dap_buffer() then
+                        return true
+                    end
+                    return false
+                end,
                 snippet =
                 {
                     expand = function(args)
@@ -1025,6 +1087,20 @@ local plugins =
                     { name = 'cmdline' },
                 })
             })
+
+            ---@diagnostic disable-next-line: undefined-field
+            cmp.setup.filetype(
+            {
+                'dap-repl',
+                'dapui-watches',
+                'dapui-hover',
+            },
+            {
+                sources =
+                {
+                    { name = 'dap' },
+                },
+            })
         end,
     },
     {
@@ -1131,11 +1207,20 @@ table.insert(plugins,
     {
         "nvim-treesitter/nvim-treesitter",
     },
-    config = function(_)
-        require("monokai-pro").setup(
-        {
-        })
-        vim.cmd("colorscheme monokai-pro")
+})
+
+table.insert(plugins,
+{
+    "folke/tokyonight.nvim",
+    opts =
+    {
+        styles = {
+            comments = { italic = false },
+            keywords = { italic = false },
+        },
+    },
+    init = function(_)
+        vim.cmd("colorscheme tokyonight-moon")
     end
 })
 
@@ -1160,6 +1245,10 @@ table.insert(plugins,
     end,
 })
 
+local function doNothing()
+    -- it's set up in the cmp setup
+end
+
 table.insert(plugins,
 {
     "zbirenbaum/copilot-cmp",
@@ -1167,9 +1256,17 @@ table.insert(plugins,
     {
         "zbirenbaum/copilot.lua",
     },
-    config = function()
-        -- set up in the cmp setup
-    end,
+    config = doNothing,
+})
+
+table.insert(plugins,
+{
+    "rcarriga/cmp-dap",
+    dependencies =
+    {
+        "mfussenegger/nvim-dap",
+    },
+    config = doNothing,
 })
 
 table.insert(plugins,
@@ -1228,6 +1325,7 @@ table.insert(plugins,
             {
                 component_separators = {'', ''},
                 section_separators = { left = '', right = ''},
+                globalstatus = true,
             },
             sections =
             {
@@ -1264,7 +1362,7 @@ table.insert(plugins,
         vim.keymap.set({ 'n', 'v' }, '<leader>go', ':GBrowse<CR>')
         vim.keymap.set('n', '<leader>gbl', ':Git blame<CR>')
         vim.keymap.set('n', '<leader>gd', ':Gvdiffsplit<CR>')
-    end
+    end,
 })
 
 for _, name in ipairs({
@@ -1311,6 +1409,7 @@ table.insert(plugins,
         vim.keymap.set("n", "[c", function()
             context.go_to_context(vim.v.count1)
         end, { silent = true })
+        vim.cmd("hi TreesitterContext  guibg=#202020");
     end,
 })
 
@@ -1325,7 +1424,7 @@ table.insert(plugins,
         "nvim-telescope/telescope.nvim",
     },
     config = function()
-        if vim.fn.has("win32") then
+        if helper.isWindows() then
             -- The slashes must be /
             vim.g.sqlite_clib_path = "D:/bin/sqlite3.dll"
         end
@@ -1416,10 +1515,181 @@ table.insert(plugins,
         };
         for _, config in ipairs(configs) do
             t.key = config[1]
-            t.action = function() config[2]() end
+            t.action = config[2]
             helper.altMacBinding(t);
         end
     end,
 });
+
+table.insert(plugins,
+{
+    "rcarriga/nvim-dap-ui",
+    dependencies =
+    {
+        "mfussenegger/nvim-dap",
+    },
+})
+
+table.insert(plugins,
+{
+    "rcarriga/nvim-dap-ui",
+    dependencies =
+    {
+        "mfussenegger/nvim-dap",
+        "nvim-neotest/nvim-nio",
+    },
+    init = function(_)
+        require("dapui").setup()
+        local dap, dapui = require("dap"), require("dapui")
+        dap.listeners.before.attach.dapui_config = function()
+            dapui.open()
+        end
+        dap.listeners.before.launch.dapui_config = function()
+            dapui.open()
+        end
+        dap.listeners.before.event_terminated.dapui_config = function()
+            dapui.close()
+        end
+        dap.listeners.before.event_exited.dapui_config = function()
+            dapui.close()
+        end
+    end,
+})
+
+table.insert(plugins,
+{
+    "mfussenegger/nvim-dap",
+    dependencies =
+    {
+        "stevearc/overseer.nvim",
+        "Joakker/lua-json5",
+        "theHamsta/nvim-dap-virtual-text",
+    },
+    init = function(plugin)
+        local dap = require("dap")
+
+        ---@diagnostic disable-next-line: undefined-field
+        dap.adapters.lldb =
+        {
+            type = "executable",
+            command = "lldb-vscode-14",
+            name = "lldb",
+        }
+
+        ---@diagnostic disable-next-line: undefined-field
+        dap.adapters.cppvsdbg =
+        {
+            type = "executable",
+            command = "vsdbg",
+            name = "cppvsdbg",
+        }
+
+        local path = require("utils.path")
+
+        local function cConfigs(compiler)
+            local program = function()
+                local currentFile = vim.api.nvim_buf_get_name(0)
+                local currentFileFolder = vim.fn.fnamemodify(currentFile, ":h")
+
+                -- do current file but remove the extension.
+                -- on windows, add .exe
+                local extension = helper.isWindows() and ".exe" or nil
+                local outputFile = path.withExtension(currentFile, extension)
+
+                -- compile
+                vim.fn.system(
+                    "cd " .. vim.fn.shellescape(currentFileFolder)
+                    .. "; " .. compiler .. " -Wall -Werror -Wconversion -o "
+                    .. vim.fn.shellescape(outputFile)
+                    .. " " .. vim.fn.shellescape(currentFile))
+
+                -- execute
+                return outputFile
+            end
+
+            local result =
+            {
+                name = "Launch current file (Default)",
+                type = "lldb",
+                request = "launch",
+                program = program,
+            }
+            return { result }
+        end
+
+        dap.configurations.cpp = cConfigs("g++")
+        dap.configurations.c = cConfigs("gcc")
+        dap.configurations.zig =
+        {{
+            name = "Zig run",
+            type = "lldb",
+            request = "launch",
+            preLauchTask = "zig build install",
+            stopOnEntry = false,
+            program = function()
+                -- find the first executable file in zig-out/bin
+                local workspaceDir = vim.fn.getcwd()
+                local outputPath = path.join(workspaceDir, "zig-out", "bin")
+                local dir = vim.loop.fs_scandir(outputPath)
+                if not dir then
+                    error("Failed to read from the default directory '" ..  outputPath .. "'")
+                end
+
+                local firstFile = nil
+                while true do
+                    local name, type = vim.loop.fs_scandir_next(dir)
+                    if name == nil then
+                        error("No default output for the build command")
+                    end
+
+                    if type == 'file' then
+                        if helper.isWindows() and name:match("%.exe$") then
+                            firstFile = name
+                            break
+                        elseif not name:match("%.") then
+                            firstFile = name
+                            break
+                        end
+                    end
+                end
+                return path.join(outputPath, firstFile)
+            end,
+        }}
+        do
+            local vscode = require("dap.ext.vscode")
+            vscode.json_decode = require("json5").parse
+            vscode.load_launchjs(nil, { lldb = { "cpp", "c", "zig" } })
+        end
+
+        local function setSign(signName, symbol)
+            vim.fn.sign_define(signName,
+            {
+                text = symbol,
+                texthl = '',
+                linehl = '',
+                numhl = '',
+            })
+        end
+        setSign("DapBreakpoint", "🔴")
+        setSign("DapBreakpointConditional", "🟢")
+        setSign("DapBreakpointRejected", "🚫")
+        setSign("DapStopped", "👉")
+        setSign("DapLogPoint", "📜")
+
+        vim.keymap.set('n', '<F5>', function() require('dap').continue() end)
+        vim.keymap.set('n', '<F10>', function() require('dap').step_over() end)
+        vim.keymap.set('n', '<F11>', function() require('dap').step_into() end)
+        vim.keymap.set('n', '<F12>', function() require('dap').step_out() end)
+        vim.keymap.set('n', '<Leader>b', function() require('dap').toggle_breakpoint() end)
+
+        vim.keymap.set("n", "wdl", ":ed " .. vim.fn.stdpath('cache') .. "/dap.log<CR>")
+    end,
+})
+
+table.insert(plugins,
+{
+    'Joakker/lua-json5',
+    build = helper.isWindows() and 'powershell ./install.ps1' or './install.sh'
+})
 
 require("lazy").setup(plugins);
