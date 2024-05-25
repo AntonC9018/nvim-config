@@ -23,10 +23,14 @@ end
 local plugins =
 {
     {
+        'nvim-telescope/telescope-fzf-native.nvim',
+        build = 'cmake -S. -Bbuild -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release && cmake --install build --prefix build'
+    },
+    {
         "nvim-treesitter/nvim-treesitter",
         dependencies =
         {
-            -- "andymass/vim-matchup",
+            "nvim-telescope/telescope-fzf-native.nvim",
         },
         config = function()
             require('nvim-treesitter.configs').setup(
@@ -74,6 +78,8 @@ local plugins =
                 --     enable = true,
                 -- },
             })
+
+            vim.opt.formatoptions:remove("o")
         end,
     },
     {
@@ -238,10 +244,18 @@ local plugins =
                 },
                 extensions =
                 {
+                    fzf =
+                    {
+                        fuzzy = true,                    -- false will only do exact matching
+                        override_generic_sorter = true,  -- override the generic sorter
+                        override_file_sorter = true,     -- override the file sorter
+                        case_mode = "smart_case",        -- or "ignore_case" or "respect_case"
+                    },
                 },
             })
 
             require("telescope").load_extension('cmdline')
+            require('telescope').load_extension('fzf')
 
             local builtin = require("telescope.builtin")
 
@@ -358,6 +372,7 @@ local plugins =
                     local newCwd = explorer.absolute_path
                     local command = string.format(":cd %s", newCwd)
                     vim.cmd(command)
+                    print("Changed CWD to " .. newCwd)
                 end, "Change the current working directory to this")
 
                 -- Doesn't work
@@ -687,7 +702,7 @@ local plugins =
                     do
                         -- https://clangd.llvm.org/config#files
                         local filePath
-                        if vim.fn.has("win32") == 1 then
+                        if helper.isWindows() then
                             filePath = vim.fn.expand("$LocalAppData") .. "\\clangd\\config.yaml"
                         else if vim.fn.has("mac") == 1 then
                             filePath = vim.fn.expand("~/Library/Preferences/clangd/config.yaml")
@@ -1264,6 +1279,7 @@ table.insert(plugins,
             {
                 component_separators = {'', ''},
                 section_separators = { left = '', right = ''},
+                globalstatus = true,
             },
             sections =
             {
@@ -1361,7 +1377,7 @@ table.insert(plugins,
         "nvim-telescope/telescope.nvim",
     },
     config = function()
-        if vim.fn.has("win32") then
+        if helper.isWindows() then
             -- The slashes must be /
             vim.g.sqlite_clib_path = "D:/bin/sqlite3.dll"
         end
@@ -1469,49 +1485,59 @@ table.insert(plugins,
 
 table.insert(plugins,
 {
+    "rcarriga/nvim-dap-ui",
+    dependencies =
+    {
+        "mfussenegger/nvim-dap",
+        "nvim-neotest/nvim-nio",
+    },
+    init = function(_)
+        require("dapui").setup()
+        local dap, dapui = require("dap"), require("dapui")
+        dap.listeners.before.attach.dapui_config = function()
+            dapui.open()
+        end
+        dap.listeners.before.launch.dapui_config = function()
+            dapui.open()
+        end
+        dap.listeners.before.event_terminated.dapui_config = function()
+            dapui.close()
+        end
+        dap.listeners.before.event_exited.dapui_config = function()
+            dapui.close()
+        end
+    end,
+})
+
+table.insert(plugins,
+{
     "mfussenegger/nvim-dap",
     dependencies =
     {
         "stevearc/overseer.nvim",
         "Joakker/lua-json5",
+        "theHamsta/nvim-dap-virtual-text",
     },
     init = function(plugin)
         local dap = require("dap")
 
-        if false then
-            ---@diagnostic disable-next-line: undefined-field
-            dap.adapters.lldb =
-            {
-                type = "executable",
-                command = "lldb",
-                name = "lldb",
-            }
+        ---@diagnostic disable-next-line: undefined-field
+        dap.adapters.lldb =
+        {
+            type = "executable",
+            command = "lldb-vscode-14",
+            name = "lldb",
+        }
 
-            ---@diagnostic disable-next-line: undefined-field
-            dap.adapters.cppvsdbg =
-            {
-                type = "executable",
-                command = "vsdbg",
-                name = "cppvsdbg",
-            }
-        end
+        ---@diagnostic disable-next-line: undefined-field
+        dap.adapters.cppvsdbg =
+        {
+            type = "executable",
+            command = "vsdbg",
+            name = "cppvsdbg",
+        }
 
         local path = require("utils.path")
-        do
-            local detached = vim.fn.has("win32") == 1
-
-            dap.adapters.codelldb =
-            {
-                type = "server",
-                port = "${port}",
-                executable =
-                {
-                    command = path.join(plugin.dir, "extension", "adapter", "codelldb"),
-                    args = { "--port", "{port}" },
-                    detached = detached,
-                },
-            }
-        end
 
         local function cConfigs(compiler)
             local program = function()
@@ -1520,13 +1546,13 @@ table.insert(plugins,
 
                 -- do current file but remove the extension.
                 -- on windows, add .exe
-                local extension = vim.fn.has("win32") == 1 and ".exe" or nil
+                local extension = helper.isWindows() and ".exe" or nil
                 local outputFile = path.withExtension(currentFile, extension)
 
                 -- compile
                 vim.fn.system(
                     "cd " .. vim.fn.shellescape(currentFileFolder)
-                    .. "; " .. compiler .. " -Wall -Werror -o "
+                    .. "; " .. compiler .. " -Wall -Werror -Wconversion -o "
                     .. vim.fn.shellescape(outputFile)
                     .. " " .. vim.fn.shellescape(currentFile))
 
@@ -1547,33 +1573,45 @@ table.insert(plugins,
         dap.configurations.cpp = cConfigs("g++")
         dap.configurations.c = cConfigs("gcc")
         dap.configurations.zig =
-        {
+        {{
             name = "Zig run",
             type = "lldb",
             request = "launch",
+            preLauchTask = "zig build install",
+            stopOnEntry = false,
             program = function()
-                vim.system("zig build install")
-                -- find the first executable file in zig_out/bin
+                -- find the first executable file in zig-out/bin
                 local workspaceDir = vim.fn.getcwd()
-                local outputPath = path.join(workspaceDir, "zig_out", "bin")
-                local files = vim.fn.readdir(outputPath)
-                for _, file in ipairs(files) do
-                    -- on windows, look for .exe
-                    local isWindows = vim.fn.has("win32") == 1
-                    if isWindows and string.find(file, ".exe") then
-                        return path.join(outputPath, file)
+                local outputPath = path.join(workspaceDir, "zig-out", "bin")
+                local dir = vim.loop.fs_scandir(outputPath)
+                if not dir then
+                    error("Failed to read from the default directory '" ..  outputPath .. "'")
+                end
+
+                local firstFile = nil
+                while true do
+                    local name, type = vim.loop.fs_scandir_next(dir)
+                    if name == nil then
+                        error("No default output for the build command")
                     end
 
-                    -- on linux, take the first file
-                    return path.join(outputPath, file)
+                    if type == 'file' then
+                        if helper.isWindows() and name:match("%.exe$") then
+                            firstFile = name
+                            break
+                        elseif not name:match("%.") then
+                            firstFile = name
+                            break
+                        end
+                    end
                 end
-                error("No default output for the build command")
+                return path.join(outputPath, firstFile)
             end,
-        }
+        }}
         do
             local vscode = require("dap.ext.vscode")
             vscode.json_decode = require("json5").parse
-            vscode.load_launchjs(nil, { codelldb = { "cpp", "c", "zig" } })
+            vscode.load_launchjs(nil, { lldb = { "cpp", "c", "zig" } })
         end
 
         local function setSign(signName, symbol)
@@ -1595,7 +1633,16 @@ table.insert(plugins,
         vim.keymap.set('n', '<F10>', function() require('dap').step_over() end)
         vim.keymap.set('n', '<F11>', function() require('dap').step_into() end)
         vim.keymap.set('n', '<F12>', function() require('dap').step_out() end)
+        vim.keymap.set('n', '<Leader>b', function() require('dap').toggle_breakpoint() end)
+
+        vim.keymap.set("n", "wdl", ":ed " .. vim.fn.stdpath('cache') .. "/dap.log<CR>")
     end,
+})
+
+table.insert(plugins,
+{
+    'Joakker/lua-json5',
+    build = helper.isWindows() and 'powershell ./install.ps1' or './install.sh'
 })
 
 require("lazy").setup(plugins);

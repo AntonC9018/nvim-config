@@ -125,4 +125,8 @@ function helper.formatPath(filePath)
     return fileName
 end
 
+function helper.isWindows()
+    return vim.fn.has("win32") == 1
+end
+
 return helper

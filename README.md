@@ -9,3 +9,7 @@ Install (codelldb)[https://github.com/vadimcn/codelldb] for debugging.
 Must be found in PATH.
 
 You need to install cargo to be able to compile `json5` (done automatically).
+
+
+LLDB has some issues after installation, see https://github.com/llvm/llvm-project/issues/55575#issuecomment-1247426995
+Install LLDB for debugging. Install Python 10 for LLDB.
