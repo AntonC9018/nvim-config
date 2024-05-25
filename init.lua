@@ -1393,6 +1393,7 @@ vim.api.nvim_create_autocmd("ColorScheme",
 {
     callback = function()
         vim.cmd.highlight("MatchParen guibg=#555599 guisp=Blue")
+        vim.cmd("hi TreesitterContext guibg=#202020");
     end
 })
 
@@ -1409,7 +1410,6 @@ table.insert(plugins,
         vim.keymap.set("n", "[c", function()
             context.go_to_context(vim.v.count1)
         end, { silent = true })
-        vim.cmd("hi TreesitterContext  guibg=#202020");
     end,
 })
 
@@ -1553,6 +1553,14 @@ table.insert(plugins,
         dap.listeners.before.event_exited.dapui_config = function()
             dapui.close()
         end
+    end,
+})
+
+table.insert(plugins,
+{
+    "stevearc/overseer.nvim",
+    init = function()
+        require('overseer').setup()
     end,
 })
 
