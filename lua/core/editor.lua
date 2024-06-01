@@ -63,3 +63,18 @@ vim.api.nvim_create_autocmd("BufWritePost",
 })
 
 vim.g.tex_fold_enabled = true
+
+vim.filetype.add(
+{
+    extension =
+    {
+        templ = "templ"
+    }
+})
+
+vim.api.nvim_create_autocmd({'BufRead', 'BufNewFile'},
+{
+    group = vim.api.nvim_create_augroup('ReadOnlyTemplFiles', { clear = true }),
+    pattern = '*_templ.go',
+    command = 'set readonly'
+})

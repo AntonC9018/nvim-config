@@ -54,6 +54,7 @@ local plugins =
                     "latex",
                     "markdown",
                     "markdown_inline",
+                    "templ",
                 },
                 sync_install = false,
                 auto_install = true,
@@ -80,7 +81,13 @@ local plugins =
                 -- },
             })
 
-            vim.opt.formatoptions:remove("o")
+            vim.api.nvim_create_autocmd("BufEnter",
+            {
+                pattern = "*.templ",
+                callback = function()
+                    vim.cmd("TSBufEnable highlight")
+                end
+            })
         end,
     },
     {
@@ -292,6 +299,11 @@ local plugins =
         config = function(_)
             local api = require("nvim-tree.api")
 
+            vim.keymap.set("n", "<leader>lo", function()
+                local logPath = vim.fn.stdpath("log")
+                vim.cmd("NvimTreeOpen " .. logPath)
+            end)
+
             local function onAttach(bufnr)
                 local function set(binding, action, desc)
                     vim.keymap.set('n', binding, action,
@@ -339,7 +351,7 @@ local plugins =
                 set('h', api.node.navigate.parent_close, "Fold parent")
                 set('<C-i>', api.node.show_info_popup, "Show info")
                 set('<F2>', api.fs.rename_basename, "Rename")
-                -- set('r', api.fs.rename, "Rename (all)")
+                set('s', api.fs.rename, "Rename (including extension)")
                 set('<2-LeftMouse>', api.node.open.edit, "Edit")
                 set('o', function()
                     doExplorer("select")
@@ -377,7 +389,6 @@ local plugins =
                     print("Changed CWD to " .. newCwd)
                 end, "Change the current working directory to this")
 
-                -- Doesn't work
                 local timeoutLenOption = vim.o.timeoutlen
                 ---@diagnostic disable-next-line: inject-field
                 vim.o.timeoutlen = 1
@@ -645,8 +656,32 @@ local plugins =
             local lspconfig = require('lspconfig')
 
             -- require("neodev").setup({
-            --     -- add any options here, or leave empty to use the default settings
             -- })
+            local function filterList(list, shouldKeepFunc)
+                for i = #list, 1, -1 do
+                    local d = list[i]
+                    if shouldKeepFunc(d) then
+                        table.remove(list, i)
+                    end
+                end
+                return list
+            end
+
+            local function withFilteredDiagnostics(keepDiagnosticFunc)
+                return function(err, result, context, config)
+                    local function pass()
+                        return vim.lsp.diagnostic.on_publish_diagnostics(err, result, context, config)
+                    end
+
+                    if result == nil then
+                        return pass()
+                    end
+
+                    local diagnostics = result.diagnostics
+                    result.diagnostics = filterList(diagnostics, keepDiagnosticFunc)
+                    return pass()
+                end
+            end
 
             lspconfig.gopls.setup(
             {
@@ -681,6 +716,24 @@ local plugins =
                         range = true,
                     }
                 end,
+                handlers =
+                {
+                    ["textDocument/publishDiagnostics"] = function(err, result, context, config)
+                        local function pass()
+                            return vim.lsp.diagnostic.on_publish_diagnostics(err, result, context, config)
+                        end
+                        if not string.match(result.uri, "_templ%.go$") then
+                            pass()
+                            return
+                        end
+
+                        local diagnostics = result.diagnostics
+                        result.diagnostics = filterList(diagnostics, function(d)
+                            return d.severity ~= vim.diagnostic.severity.ERROR
+                        end)
+                        pass()
+                    end,
+                },
             })
 
             lspconfig.lua_ls.setup(
@@ -695,9 +748,8 @@ local plugins =
                     -- https://github.com/LuaLS/lua-language-server/issues/1089
                     -- https://github.com/LuaLS/lua-language-server/issues/1596
                     config.handlers = vim.tbl_extend('error', {}, config.handlers)
-                    config.handlers['workspace/configuration'] = function(...)
-                        local _, result, ctx = ...
-                        local client_id = ctx.client_id
+                    config.handlers['workspace/configuration'] = function(err, result, context, config_)
+                        local client_id = context.client_id
                         local client = vim.lsp.get_client_by_id(client_id)
                         if client and client.workspace_folders and #client.workspace_folders then
                             if result.items and #result.items > 0 then
@@ -707,7 +759,7 @@ local plugins =
                             end
                         end
 
-                        return vim.lsp.handlers['workspace/configuration'](...)
+                        return vim.lsp.handlers['workspace/configuration'](err, result, context, config_)
                     end
                 end
             end)
@@ -771,7 +823,44 @@ local plugins =
                 },
             })
 
-            lspconfig.tsserver.setup({})
+            lspconfig.tsserver.setup({
+                handlers =
+                {
+                    ["textDocument/publishDiagnostics"] = withFilteredDiagnostics(function(d)
+                        -- Ignore suggestion to convert to ES modules
+                        if d.code == 80001 then
+                            return false
+                        end
+                        return true
+                    end),
+                },
+            })
+
+            lspconfig.templ.setup({})
+
+            for _, lsp in ipairs({ "html", "htmx" }) do
+                lspconfig[lsp].setup({
+                    filetypes = { "html", "templ" },
+                })
+            end
+
+            lspconfig.tailwindcss.setup({
+                filetypes =
+                {
+                    "templ",
+                    "astro",
+                    "javascript",
+                    "typescript",
+                    "react",
+                },
+                init_options =
+                {
+                    userLanguages =
+                    {
+                        templ = "html"
+                    }
+                },
+            })
 
             vim.api.nvim_create_autocmd('LspAttach',
             {
@@ -1014,7 +1103,7 @@ local plugins =
                 sorting = defaultSorting,
                 experimental =
                 {
-                    ghost_text = true,
+                    -- ghost_text = true,
                 },
                 matching =
                 {
@@ -1392,8 +1481,9 @@ table.insert(plugins,
 vim.api.nvim_create_autocmd("ColorScheme",
 {
     callback = function()
-        vim.cmd.highlight("MatchParen guibg=#555599 guisp=Blue")
-        vim.cmd("hi TreesitterContext guibg=#202020");
+        vim.cmd("hi MatchParen guibg=#555599 guisp=Blue")
+        vim.cmd("hi TreesitterContext guibg=#202020")
+        vim.cmd("hi SpellBad guifg=#EE5555")
     end
 })
 
@@ -1401,6 +1491,7 @@ vim.api.nvim_create_autocmd("ColorScheme",
 table.insert(plugins,
 {
     "nvim-treesitter/nvim-treesitter-context",
+    enabled = false,
     dependencies =
     {
         "nvim-treesitter/nvim-treesitter",
@@ -1569,11 +1660,12 @@ table.insert(plugins,
     "mfussenegger/nvim-dap",
     dependencies =
     {
+        "leoluz/nvim-dap-go",
         "stevearc/overseer.nvim",
         "Joakker/lua-json5",
         "theHamsta/nvim-dap-virtual-text",
     },
-    init = function(plugin)
+    init = function(_)
         local dap = require("dap")
 
         ---@diagnostic disable-next-line: undefined-field
@@ -1663,6 +1755,14 @@ table.insert(plugins,
                 return path.join(outputPath, firstFile)
             end,
         }}
+
+        dap.adapters.go = {
+            type = "executable",
+            command = "node",
+            args = { vim.fn.stdpath("data") .. "/mason/bin/go-debug-adapter" },
+        }
+        require("dap-go").setup()
+
         do
             local vscode = require("dap.ext.vscode")
             vscode.json_decode = require("json5").parse
@@ -1690,7 +1790,7 @@ table.insert(plugins,
         vim.keymap.set('n', '<F12>', function() require('dap').step_out() end)
         vim.keymap.set('n', '<Leader>b', function() require('dap').toggle_breakpoint() end)
 
-        vim.keymap.set("n", "wdl", ":ed " .. vim.fn.stdpath('cache') .. "/dap.log<CR>")
+        -- vim.keymap.set("n", "wdl", ":ed " .. vim.fn.stdpath('cache') .. "/dap.log<CR>")
     end,
 })
 
