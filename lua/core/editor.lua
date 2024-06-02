@@ -71,10 +71,16 @@ vim.filetype.add(
         templ = "templ"
     }
 })
+vim.api.nvim_create_autocmd("FileType", {
+    pattern = "templ",
+    command = "setlocal commentstring=//\\ %s"
+})
 
 vim.api.nvim_create_autocmd({'BufRead', 'BufNewFile'},
 {
     group = vim.api.nvim_create_augroup('ReadOnlyTemplFiles', { clear = true }),
     pattern = '*_templ.go',
-    command = 'set readonly'
+    callback = function()
+        vim.cmd('set readonly')
+    end,
 })

@@ -660,7 +660,7 @@ local plugins =
             local function filterList(list, shouldKeepFunc)
                 for i = #list, 1, -1 do
                     local d = list[i]
-                    if shouldKeepFunc(d) then
+                    if not shouldKeepFunc(d) then
                         table.remove(list, i)
                     end
                 end
@@ -729,7 +729,7 @@ local plugins =
 
                         local diagnostics = result.diagnostics
                         result.diagnostics = filterList(diagnostics, function(d)
-                            return d.severity ~= vim.diagnostic.severity.ERROR
+                            return d.severity == vim.diagnostic.severity.ERROR
                         end)
                         pass()
                     end,
