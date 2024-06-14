@@ -63,3 +63,33 @@ vim.api.nvim_create_autocmd("BufWritePost",
 })
 
 vim.g.tex_fold_enabled = true
+
+vim.filetype.add(
+{
+    extension =
+    {
+        templ = "templ"
+    }
+})
+vim.api.nvim_create_autocmd("FileType", {
+    pattern = "templ",
+    command = "setlocal commentstring=//\\ %s"
+})
+
+vim.api.nvim_create_autocmd({'BufRead', 'BufNewFile'},
+{
+    group = vim.api.nvim_create_augroup('ReadOnlyTemplFiles', { clear = true }),
+    pattern = '*_templ.go',
+    callback = function()
+        vim.cmd('set readonly')
+    end,
+})
+
+vim.api.nvim_create_autocmd("ColorScheme",
+{
+    callback = function()
+        vim.cmd("hi MatchParen guibg=#555599 guisp=Blue")
+        vim.cmd("hi TreesitterContext guibg=#202020")
+        vim.cmd("hi SpellBad guifg=#EE5555")
+    end
+})

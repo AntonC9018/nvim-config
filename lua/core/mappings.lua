@@ -2,8 +2,32 @@ local helper = require("core.helper")
 
 vim.g.mapleader = " "
 
-helper.altMacBinding({ mode = { 'i', 'n' }, key = "h", action = "<C-o>" })
-helper.altMacBinding({ mode = { 'i', 'n' }, key = "l", action = "<C-i>" })
+helper.altMacBinding(
+{
+    mode = { 'i', 'n' },
+    key = "h",
+    action = "<C-o>",
+    opts = {
+        desc = "Go back",
+    },
+})
+helper.altMacBinding(
+{
+    mode = { 'i', 'n' },
+    key = "l",
+    action = "<C-i>",
+    opts = {
+        desc = "Go forward",
+    },
+})
+
+helper.altMacBinding({ mode = { 'c' }, key = "h", action = "<Left>" })
+helper.altMacBinding({ mode = { 'c' }, key = "l", action = "<Right>" })
+-- Works as B???????
+helper.altMacBinding({ mode = { 'c' }, key = "b", action = "<S-Left>" })
+helper.altMacBinding({ mode = { 'c' }, key = "e", action = "<S-Right>" })
+-- Doens't work???
+-- helper.altMacBinding({ mode = { 'c' }, key = "<Backspace>", action = "<C-w>" })
 
 do
     local systemClipboardRegisterReference = '"' .. helper.systemClipboardRegister
@@ -71,18 +95,26 @@ do
 end
 
 -- Folding
-vim.keymap.set("n", "L", "zo")
-vim.keymap.set("n", "H", "zc")
+vim.keymap.set("n", "L", "zo",
+{
+    desc = "Unfold",
+})
+vim.keymap.set("n", "H", "zc",
+{
+    desc = "Fold",
+})
 
 vim.keymap.set("v", ">", ">" .. helper.lastTextChange())
 vim.keymap.set("v", "<", "<" .. helper.lastTextChange())
 vim.keymap.set("v", "=", "=" .. helper.lastTextChange())
 
-vim.keymap.set("n", "<leader>ht", function()
-    vim.o.hls = not vim.o.hls
-end, {
-    desc = "Toggle highlight",
-})
+for _, key in ipairs({ "<leader>ht", "<leader>th" }) do
+    vim.keymap.set("n", key, function()
+        vim.o.hls = not vim.o.hls
+    end, {
+        desc = "Toggle highlight",
+    })
+end
 
 vim.keymap.set("n", "ww", function()
     vim.o.wrap = not vim.o.wrap
@@ -90,13 +122,32 @@ end, {
     desc = "Toggle word wrap",
 })
 
-vim.keymap.set("n", "W", ":w<CR>")
+vim.keymap.set("n", "W", ":w<CR>",
+{
+    desc = "Save",
+})
+vim.keymap.set("n", "Q", ":q<CR>",
+{
+    desc = "Close",
+})
 
 -- Window navigation
-vim.keymap.set("n", "<C-h>", "<C-W><C-h>")
-vim.keymap.set("n", "<C-l>", "<C-W><C-l>")
-vim.keymap.set("n", "<C-j>", "<C-W><C-j>")
-vim.keymap.set("n", "<C-k>", "<C-W><C-k>")
+vim.keymap.set("n", "<C-h>", "<C-W><C-h>",
+{
+    desc = "Go to left window",
+})
+vim.keymap.set("n", "<C-l>", "<C-W><C-l>",
+{
+    desc = "Go to right window",
+})
+vim.keymap.set("n", "<C-j>", "<C-W><C-j>",
+{
+    desc = "Go to bottom window",
+})
+vim.keymap.set("n", "<C-k>", "<C-W><C-k>",
+{
+    desc = "Go to top window",
+})
 
 vim.keymap.set('n', '<leader>tw', [[:%s/\s\+$//e<cr>]],
 {
@@ -207,8 +258,9 @@ do
     bind("v", "")
 end
 
-vim.keymap.set("n", "wc", "q:", {
+vim.keymap.set("n", "wc", "q:",
+{
     desc = "Show command history buffer",
 });
 
-vim.keymap.set("n", "<leader>th", ":Inspect<CR>")
+vim.keymap.set("n", "<leader>tth", ":Inspect<CR>")
