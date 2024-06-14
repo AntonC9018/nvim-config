@@ -91,6 +91,33 @@ local plugins =
         end,
     },
     {
+        'nvim-treesitter/nvim-treesitter-textobjects',
+        -- Completely breaks some things
+        enabled = false,
+        config = function()
+            local configs = require('nvim-treesitter.configs')
+            local select = {
+                enable = true,
+                lookahead = true,
+                keymaps = {
+                    -- ["af"] = "@function.outer",
+                    -- ["if"] = "@function.inner",
+                    -- ["at"] = "@class.outer",
+                    -- ["it"] = "@class.inner",
+                    -- ii to select the condition of an in (the condition node inside an if_statement node).
+                    ["ii"] = "@conditional.inner",
+                    ["ai"] = "@conditional.outer",
+                },
+            }
+            configs.setup({
+                textobjects =
+                {
+                    select = select,
+                },
+            })
+        end,
+    },
+    {
         "nvim-tree/nvim-web-devicons",
         opts =
         {
@@ -267,30 +294,49 @@ local plugins =
 
             local builtin = require("telescope.builtin")
 
-            vim.keymap.set("n", "<leader>so", function()
+            vim.keymap.set("n", "wF", function()
                 vim.cmd.Telescope()
-            end, {})
-            vim.keymap.set("n", "<leader>sp", builtin.find_files, {})
-            vim.keymap.set("n", "<leader>sf", function()
+            end, {
+                desc = "Open the window of windows",
+            })
+            vim.keymap.set("n", "wp", builtin.find_files, {
+                desc = "Find files by name",
+            })
+            vim.keymap.set("n", "wf", function()
                 builtin.live_grep({
                     grep_open_files = false
                 })
-            end, {})
-            vim.keymap.set("n", "<leader><leader>", builtin.lsp_workspace_symbols, {})
-            vim.keymap.set("n", "<leader>ss", builtin.lsp_workspace_symbols, {})
-            vim.keymap.set("n", "<leader>sh", builtin.help_tags, {})
+            end, {
+                desc = "Search files",
+            })
+
+            do
+                local t = { desc = "Show workspace symbols" }
+                vim.keymap.set("n", "<leader><leader>", builtin.lsp_workspace_symbols, t)
+                vim.keymap.set("n", "ws", builtin.lsp_workspace_symbols, t)
+            end
+
+            vim.keymap.set("n", "wh", builtin.help_tags, {
+                desc = "Search help",
+            })
             vim.keymap.set("n", "<leader>hm", builtin.command_history, {})
             vim.keymap.set("n", "<leader>hf", builtin.search_history, {})
-            vim.keymap.set("n", "<leader>sj", builtin.jumplist, {})
-            vim.keymap.set("n", "<leader>sk", builtin.keymaps, {})
+            vim.keymap.set("n", "wj", builtin.jumplist, {
+                desc = "Search jumplist",
+            })
+            vim.keymap.set("n", "wk", builtin.keymaps, {
+                desc = "Search keymaps",
+            })
             vim.keymap.set("n", "gu", builtin.lsp_references, {})
             vim.keymap.set("n", "gi", builtin.lsp_implementations, {})
             vim.keymap.set("n", "gt", builtin.lsp_type_definitions, {})
             vim.keymap.set('n', 'gd', builtin.lsp_definitions, {})
             vim.keymap.set("n", "gs", builtin.lsp_document_symbols, {})
-            vim.keymap.set("n", "<leader>sy", function()
+            vim.keymap.set("n", "wy", function()
                 vim.cmd("Telescope resume")
-            end)
+            end, {
+                desc = "Restore the previous telescope search",
+            })
         end,
     },
     {
@@ -299,10 +345,12 @@ local plugins =
         config = function(_)
             local api = require("nvim-tree.api")
 
-            vim.keymap.set("n", "<leader>lo", function()
+            vim.keymap.set("n", "wl", function()
                 local logPath = vim.fn.stdpath("log")
                 vim.cmd("NvimTreeOpen " .. logPath)
-            end)
+            end, {
+                desc = "Open the logs folder",
+            })
 
             local function onAttach(bufnr)
                 local function set(binding, action, desc)
@@ -442,7 +490,7 @@ local plugins =
                         {
                             git =
                             {
-                                unstaged = "x",
+                                unstaged = "×",
                                 staged = "✓",
                                 unmerged = "",
                                 renamed = "R",
@@ -486,7 +534,9 @@ local plugins =
                 else
                     tree.open()
                 end
-            end)
+            end, {
+                desc = "Open file explorer",
+            })
 
             vim.keymap.set('n', 'wE', function()
                 tree.open(
@@ -494,7 +544,9 @@ local plugins =
                     find_file = true,
                     update_root = true,
                 })
-            end)
+            end, {
+                desc = "Select current file in the file explorer",
+            })
         end
     },
     {
@@ -541,12 +593,6 @@ local plugins =
             }
             local opts = { remap = true }
 
-            vim.keymap.set({ 'n', 'v' }, ';',
-                function()
-                    hop.hint_char1(hopOpts)
-                end,
-                opts)
-
             vim.keymap.set({ 'n', 'v' }, '<C-;>',
                 function()
                     hop.hint_char2(hopOpts)
@@ -586,7 +632,7 @@ local plugins =
                 {
                     close = "<esc>", -- close the list
                     refresh = "<C-r>",
-                    jump = { "<cr>", "<tab>", "<2-leftmouse>" },
+                    jump = { "<cr>", "<2-leftmouse>" },
                     -- open_tab = { "<c-t>" }, -- open buffer in new tab
                     jump_close = "gd",
                     toggle_mode = "m", -- workspace / document
@@ -630,13 +676,6 @@ local plugins =
             vim.keymap.set("n", "gu", function()
                 trouble.toggle("lsp_references")
             end)
-
-            -- vim.keymap.set("n", "ge", function()
-            --     trouble.next({ skip_groups = true, jump = true })
-            -- end)
-            -- vim.keymap.set("n", "gE", function()
-            --     trouble.previous({ skip_groups = true, jump = true })
-            -- end)
         end
     },
     {
@@ -870,9 +909,15 @@ local plugins =
                     vim.bo[ev.buf].omnifunc = 'v:lua.vim.lsp.omnifunc'
 
                     local opts = { buffer = ev.buf }
+                    local function setKey(mode, key, action, desc)
+                        opts.desc = desc
+                        vim.keymap.set(mode, key, action, opts)
+                    end
 
-                    vim.keymap.set('n', 'gD', vim.lsp.buf.declaration, opts)
-                    vim.keymap.set("n", "U", vim.lsp.buf.hover, opts)
+                    setKey('n', 'gD', vim.lsp.buf.declaration, "Go to declaration")
+                    setKey("n", "U", vim.lsp.buf.hover, "Show info about symbol")
+
+                    opts.desc = "Show function signature"
                     helper.altMacBinding(
                     {
                         mode = { 'n', 'i' },
@@ -880,22 +925,27 @@ local plugins =
                         action = vim.lsp.buf.signature_help,
                         opts = opts,
                     })
-                    vim.keymap.set('n', '<F2>', vim.lsp.buf.rename, opts)
-                    vim.keymap.set({ 'n', 'v' }, '<C-.>', vim.lsp.buf.code_action, opts)
-                    vim.keymap.set({ 'n', 'v' }, '<space>ref', function()
+
+                    setKey('n', '<F2>', vim.lsp.buf.rename, "Rename symbol")
+                    setKey({ 'n', 'v' }, '<C-.>', vim.lsp.buf.code_action, "LSP code action")
+                    setKey({ 'n', 'v' }, '<space>ref', function()
                         vim.lsp.buf.format({
                             async = true,
                         })
-                    end, opts)
+                    end, "Reformat selection (visual) or the whole buffer (normal)")
                 end,
             })
 
             vim.keymap.set("n", "ge", function()
                 vim.diagnostic.goto_next()
-            end);
+            end, {
+                desc = "Go to next error",
+            });
             vim.keymap.set("n", "gE", function()
                 vim.diagnostic.goto_prev()
-            end);
+            end, {
+                desc = "Go to previous error",
+            });
         end
     },
     {
@@ -1199,7 +1249,10 @@ local plugins =
             'kana/vim-textobj-user',
         },
         init = function(_)
-            vim.keymap.set('n', '<leader>a', 'vae', { remap = true })
+            vim.keymap.set('n', '<leader>a', 'vae', {
+                remap = true,
+                desc = "Select whole buffer",
+            })
         end,
     },
     {
@@ -1217,17 +1270,21 @@ local plugins =
         init = function(_)
             for _, mode in ipairs({ 'n', 'v' }) do
                 local modeCapital = string.upper(mode)
+                local lineOrSelection = mode == "n" and "line" or "selection"
+
                 helper.altMacBinding(
                 {
                     mode = mode,
                     key = 'k',
                     action = '<Plug>Go' .. modeCapital .. 'SMUp',
+                    desc = "Move " .. lineOrSelection .. " up",
                 })
                 helper.altMacBinding(
                 {
                     mode = mode,
                     key = 'j',
                     action = '<Plug>Go' .. modeCapital .. 'SMDown',
+                    desc = "Move " .. lineOrSelection .. " down",
                 })
             end
         end,
@@ -1241,7 +1298,9 @@ table.insert(plugins,
     init = function()
         vim.keymap.set('n', 'wm', function()
             vim.cmd("Bufferize messages")
-        end)
+        end, {
+            desc = "Show console messages in a temporary buffer",
+        })
     end,
 })
 
@@ -1367,15 +1426,15 @@ table.insert(plugins,
     },
     init = function()
         local spectre = require("spectre")
+        local opts = {
+            desc = "Search and Replace",
+        }
         vim.keymap.set('n', 'wr', function()
             spectre.toggle()
-        end)
+        end, opts)
         vim.keymap.set('v', 'wr', function()
             spectre.open_visual()
-        end)
-        vim.keymap.set('n', '<leader>sr', function()
-            spectre.open_file_search()
-        end)
+        end, opts)
     end
 })
 
@@ -1448,8 +1507,10 @@ table.insert(plugins,
 {
     "tpope/vim-fugitive",
     init = function(_)
-        vim.keymap.set({ 'n', 'v' }, '<leader>go', ':GBrowse<CR>')
-        vim.keymap.set('n', '<leader>gbl', ':Git blame<CR>')
+        vim.keymap.set({ 'n', 'v' }, '<leader>go', ':GBrowse<CR>', {
+            desc = "Open selection (visual) or file (normal) on GitHub",
+        })
+        vim.keymap.set('n', '<leader>gb', ':Git blame<CR>')
         vim.keymap.set('n', '<leader>gd', ':Gvdiffsplit<CR>')
     end,
 })
@@ -1478,26 +1539,25 @@ table.insert(plugins,
     end,
 })
 
-vim.api.nvim_create_autocmd("ColorScheme",
-{
-    callback = function()
-        vim.cmd("hi MatchParen guibg=#555599 guisp=Blue")
-        vim.cmd("hi TreesitterContext guibg=#202020")
-        vim.cmd("hi SpellBad guifg=#EE5555")
-    end
-})
-
 -- Buggy with <C-w><C-o>
 table.insert(plugins,
 {
     "nvim-treesitter/nvim-treesitter-context",
-    enabled = false,
     dependencies =
     {
         "nvim-treesitter/nvim-treesitter",
     },
     init = function()
         local context = require("treesitter-context");
+        context.setup({
+            max_lines = 5,
+            on_attach = function()
+                if vim.bo.filetype == "go" then
+                    return false
+                end
+                return true
+            end,
+        })
         vim.keymap.set("n", "[c", function()
             context.go_to_context(vim.v.count1)
         end, { silent = true })
@@ -1798,6 +1858,18 @@ table.insert(plugins,
 {
     'Joakker/lua-json5',
     build = helper.isWindows() and 'powershell ./install.ps1' or './install.sh'
+})
+
+table.insert(plugins,
+{
+    -- C-k  --  add link
+    -- C-b  --  toggle bold
+    -- C-i  --  toggle italic
+    -- C-e  --  toggle code block
+    "antonk52/markdowny.nvim",
+    init = function()
+        require('markdowny').setup()
+    end,
 })
 
 require("lazy").setup(plugins);
