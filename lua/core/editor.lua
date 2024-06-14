@@ -84,3 +84,12 @@ vim.api.nvim_create_autocmd({'BufRead', 'BufNewFile'},
         vim.cmd('set readonly')
     end,
 })
+
+vim.api.nvim_create_autocmd("ColorScheme",
+{
+    callback = function()
+        vim.cmd("hi MatchParen guibg=#555599 guisp=Blue")
+        vim.cmd("hi TreesitterContext guibg=#202020")
+        vim.cmd("hi SpellBad guifg=#EE5555")
+    end
+})
