@@ -293,21 +293,37 @@ local plugins =
             require('telescope').load_extension('fzf')
 
             local builtin = require("telescope.builtin")
+            local utils = require("telescope.utils")
 
             vim.keymap.set("n", "wF", function()
                 vim.cmd.Telescope()
             end, {
                 desc = "Open the window of windows",
             })
-            vim.keymap.set("n", "wp", builtin.find_files, {
+            vim.keymap.set("n", "wp", function()
+                builtin.find_files({
+                    hidden = true,
+                    no_ignore = true,
+                    no_ignore_parent = true,
+                })
+            end, {
                 desc = "Find files by name",
             })
             vim.keymap.set("n", "wf", function()
                 builtin.live_grep({
-                    grep_open_files = false
+                    grep_open_files = false,
+                    -- cwd = utils.buffer_dir(),
                 })
             end, {
                 desc = "Search files",
+            })
+            vim.keymap.set({ "n", "v" }, "w*", function()
+                builtin.grep_string({
+                    grep_open_files = false,
+                    -- cwd = utils.buffer_dir(),
+                })
+            end, {
+                desc = "Search under cursor",
             })
 
             do
@@ -901,10 +917,21 @@ local plugins =
                 },
             })
 
+            local function noCompletionOnSpaceForTailwind()
+                for _, client in pairs((vim.lsp.get_clients {})) do
+                    if client.name == "tailwindcss" then
+                        local ch = { '"', "'", "`", ".", "(", "[", "!", "/", ":" }
+                        client.server_capabilities.completionProvider.triggerCharacters = ch
+                    end
+                end
+            end
+
             vim.api.nvim_create_autocmd('LspAttach',
             {
                 group = vim.api.nvim_create_augroup('UserLspConfig', {}),
                 callback = function(ev)
+                    noCompletionOnSpaceForTailwind()
+
                     ---@diagnostic disable-next-line: inject-field
                     vim.bo[ev.buf].omnifunc = 'v:lua.vim.lsp.omnifunc'
 
