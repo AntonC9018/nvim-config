@@ -170,8 +170,9 @@ local plugins =
                 vim.fn.setreg("+", display)
             end
 
+            local telescope = require("telescope")
             ---@diagnostic disable-next-line: missing-parameter
-            require("telescope").setup({
+            telescope.setup({
                 defaults =
                 {
                     mappings =
@@ -289,19 +290,37 @@ local plugins =
                 },
             })
 
-            require("telescope").load_extension('cmdline')
-            require('telescope').load_extension('fzf')
+            telescope.load_extension('cmdline')
+            telescope.load_extension('fzf')
 
             local builtin = require("telescope.builtin")
             local utils = require("telescope.utils")
 
-            vim.keymap.set("n", "wF", function()
-                vim.cmd.Telescope()
-            end, {
-                desc = "Open the window of windows",
-            })
-            vim.keymap.set("n", "wp", function()
-                builtin.find_files({
+            local function searchMaybeSelection(picker, opts)
+                local mode = vim.fn.mode()
+                if mode ~= 'v' and mode ~= 'V' then
+                    picker(opts)
+                    return
+                end
+
+                helper.cancelSelectionAndExecuteWithSelection(
+                {
+                    func = function(lines)
+                        local text = table.concat(lines, '\n')
+                        opts.default_text = text
+                        picker(opts)
+                    end
+                })
+            end
+
+
+            -- vim.keymap.set("n", "wF", function()
+            --     vim.cmd.Telescope()
+            -- end, {
+            --     desc = "Open the window of windows",
+            -- })
+            vim.keymap.set({ "n", "v" }, "wp", function()
+                searchMaybeSelection(builtin.find_files, {
                     hidden = true,
                     no_ignore = true,
                     no_ignore_parent = true,
@@ -309,18 +328,29 @@ local plugins =
             end, {
                 desc = "Find files by name",
             })
-            vim.keymap.set("n", "wf", function()
-                builtin.live_grep({
+
+            vim.keymap.set({ "n", "v" }, "wF", function()
+                searchMaybeSelection(builtin.live_grep, {
                     grep_open_files = false,
-                    -- cwd = utils.buffer_dir(),
+                    cwd = utils.buffer_dir(),
+                })
+            end, {
+                desc = "Search in directory of the current buffer",
+            })
+
+            vim.keymap.set({ "n", "v" }, "wf", function()
+                searchMaybeSelection(builtin.live_grep, {
+                    grep_open_files = false,
                 })
             end, {
                 desc = "Search files",
             })
-            vim.keymap.set({ "n", "v" }, "w*", function()
-                builtin.grep_string({
+
+            vim.keymap.set({ "n" }, "w*", function()
+                local cword = vim.fn.expand("<cword>")
+                builtin.live_grep({
                     grep_open_files = false,
-                    -- cwd = utils.buffer_dir(),
+                    default_text = cword,
                 })
             end, {
                 desc = "Search under cursor",
@@ -942,7 +972,16 @@ local plugins =
                     end
 
                     setKey('n', 'gD', vim.lsp.buf.declaration, "Go to declaration")
-                    setKey("n", "U", vim.lsp.buf.hover, "Show info about symbol")
+                    -- setKey("n", "U", vim.lsp.buf.hover, "Show info about symbol")
+
+                    opts.desc = "Show info about symbol"
+                    helper.altMacBinding(
+                    {
+                        mode = 'n',
+                        key = 'i',
+                        action = vim.lsp.buf.hover,
+                        opts = opts,
+                    })
 
                     opts.desc = "Show function signature"
                     helper.altMacBinding(
@@ -1140,7 +1179,10 @@ local plugins =
                     },
                 },
                 preselect_mode = cmp.PreselectMode.None,
-                autocomplete = true,
+                completion = {
+                    -- It suggests lots of garbage without this.
+                    keyword_length = 2,
+                },
                 mapping = vim.tbl_deep_extend(
                     'error',
                     defaultMapping,
@@ -1652,7 +1694,7 @@ table.insert(plugins,
         harpoon:setup()
         -- REQUIRED
 
-        vim.keymap.set("n", "<M-a>", function() harpoon:list():append() end)
+        vim.keymap.set("n", "<M-a>", function() harpoon:list():add() end)
         vim.keymap.set("n", "<M-e>", function() harpoon.ui:toggle_quick_menu(harpoon:list()) end)
 
         for i = 1, 6 do

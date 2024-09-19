@@ -50,47 +50,34 @@ do
     -- Map <leader>c to copying to the system register without indentation
     vim.keymap.set("n", "<leader>c", '0v$' .. systemClipboardRegisterReference .. 'y')
     vim.keymap.set("v", "<leader>c", function()
-
-        -- This function won't work unless you've exited visual mode.
-        -- The markers are only updated then.
-        local function get_visual_selection()
-            local bufnr = vim.api.nvim_get_current_buf()
-            local start_pos = vim.fn.getpos("'<")
-            local end_pos = vim.fn.getpos("'>")
-            local start_line = start_pos[2] - 1
-            local end_line = end_pos[2] - 1
-            local lines = vim.api.nvim_buf_get_lines(bufnr, start_line, end_line + 1, false)
-            return lines
-        end
-
-        -- Exit visual mode
-        vim.api.nvim_input("<Esc>")
-        -- This is required so that the exiting gets processed.
-        vim.schedule(function()
-            local lines = get_visual_selection()
-            if #lines == 0 then
-                return
-            end
-
-            local minIndentation = nil
-            for _, line in ipairs(lines) do
-                local indentation = line:match("^%s*")
-                if minIndentation == nil then
-                    minIndentation = #indentation
-                elseif #indentation < minIndentation then
-                    minIndentation = #indentation
+        helper.cancelSelectionAndExecuteWithSelection(
+        {
+            lineMode = true,
+            func = function (lines)
+                if #lines == 0 then
+                    return
                 end
-            end
 
-            if minIndentation ~= 0 then
-                for i, line in ipairs(lines) do
-                    lines[i] = line:sub(minIndentation + 1)
+                local minIndentation = nil
+                for _, line in ipairs(lines) do
+                    local indentation = line:match("^%s*")
+                    if minIndentation == nil then
+                        minIndentation = #indentation
+                    elseif #indentation < minIndentation then
+                        minIndentation = #indentation
+                    end
                 end
-            end
 
-            local linesAsString = table.concat(lines, "\n")
-            vim.fn.setreg(helper.systemClipboardRegister, linesAsString, "l")
-        end)
+                if minIndentation ~= 0 then
+                    for i, line in ipairs(lines) do
+                        lines[i] = line:sub(minIndentation + 1)
+                    end
+                end
+
+                local linesAsString = table.concat(lines, "\n")
+                vim.fn.setreg(helper.systemClipboardRegister, linesAsString, "l")
+            end
+        })
     end)
 end
 
