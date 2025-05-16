@@ -823,8 +823,19 @@ local plugins =
 
             lspconfig.lua_ls.setup(
             {
+
+                settings = {
+                    Lua = {
+                        workspace = {
+                            library = {
+                                "/mnt/d/include/wow/library",
+                            },
+                        },
+                    },
+                },
             })
 
+            -- Doesn't work btw
             -- https://github.com/LuaLS/lua-language-server/issues/1596#issuecomment-1855087288
             lspconfig.util.on_setup = lspconfig.util.add_hook_after(lspconfig.util.on_setup, function(config)
                 if config.name == 'lua_ls' then

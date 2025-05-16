@@ -204,4 +204,28 @@ function helper.cancelSelectionAndExecuteWithSelection(opts)
     end)
 end
 
+
+--- @param a string[]
+--- @param b string[]
+--- @return boolean
+function helper.containsInOrder(a, b)
+    local lastIndex = #a - #b
+    for ia = 0, lastIndex do
+        local function isMatch()
+            for ib = 0, #b - 1 do
+                local ela = a[ia + ib + 1]
+                local elb = b[ib + 1]
+                if ela ~= elb then
+                    return false
+                end
+            end
+            return true
+        end
+        if isMatch() then
+            return true
+        end
+    end
+    return false
+end
+
 return helper

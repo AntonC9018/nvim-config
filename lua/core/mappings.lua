@@ -47,6 +47,11 @@ do
     mapSystemRegisterPaste("<leader>p", "p")
     mapSystemRegisterPaste("<leader>P", "P")
 
+    vim.keymap.set({"n", "v"}, "<leader>gr", systemClipboardRegisterReference .. "gr",
+    {
+        remap = true,
+    });
+
     -- Map <leader>c to copying to the system register without indentation
     vim.keymap.set("n", "<leader>c", '0v$' .. systemClipboardRegisterReference .. 'y')
     vim.keymap.set("v", "<leader>c", function()
