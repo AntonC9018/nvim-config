@@ -813,21 +813,18 @@ local plugins =
                 end,
                 handlers =
                 {
-                    ["textDocument/publishDiagnostics"] = function(err, result, context, config)
-                        local function pass()
-                            return vim.lsp.diagnostic.on_publish_diagnostics(err, result, context, config)
-                        end
-                        if not string.match(result.uri, "_templ%.go$") then
-                            pass()
-                            return
-                        end
-
-                        local diagnostics = result.diagnostics
-                        result.diagnostics = filterList(diagnostics, function(d)
-                            return d.severity == vim.diagnostic.severity.ERROR
-                        end)
-                        pass()
-                    end,
+                    ["textDocument/publishDiagnostics"] = withFilteredDiagnostics(
+                        {
+                            shouldFilter = function(result)
+                                if string.match(result.uri, "_templ%.go$") then
+                                    return true
+                                end
+                                return false
+                            end,
+                            keep = function(d)
+                                return d.severity == vim.diagnostic.severity.ERROR
+                            end
+                        }),
                 },
             })
 
@@ -908,13 +905,16 @@ local plugins =
             {
                 handlers =
                 {
-                    ["textDocument/publishDiagnostics"] = withFilteredDiagnostics(function(d)
-                        -- Ignore suggestion to convert to ES modules
-                        if d.code == 80001 then
-                            return false
-                        end
-                        return true
-                    end),
+                    ["textDocument/publishDiagnostics"] = withFilteredDiagnostics(
+                        {
+                            keep = function(d)
+                                -- Ignore suggestion to convert to ES modules
+                                if d.code == 80001 then
+                                    return false
+                                end
+                                return true
+                            end
+                        }),
                 },
             })
 
