@@ -256,3 +256,5 @@ vim.keymap.set("n", "wc", "q:",
 });
 
 vim.keymap.set("n", "<leader>tth", ":Inspect<CR>")
+
+helper.altMacBinding({ mode = { 'i' }, key = "-", action = "—" })

@@ -93,3 +93,4 @@ vim.api.nvim_create_autocmd("ColorScheme",
         vim.cmd("hi SpellBad guifg=#EE5555")
     end
 })
+

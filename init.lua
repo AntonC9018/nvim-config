@@ -28,57 +28,56 @@ local plugins =
     },
     {
         "nvim-treesitter/nvim-treesitter",
-        tag = "v0.9.2",
+        branch = "main",
         dependencies =
         {
             "nvim-telescope/telescope-fzf-native.nvim",
         },
         config = function()
-            require('nvim-treesitter.configs').setup(
-            ---@diagnostic disable-next-line: missing-fields
-            {
-                ensure_installed =
-                {
-                    "c",
-                    "cpp",
-                    "c_sharp",
-                    "lua",
-                    "vim",
-                    "vimdoc",
-                    "query",
-                    "zig",
-                    "python",
-                    "javascript",
-                    "html",
-                    "go",
-                    "latex",
-                    "markdown",
-                    "markdown_inline",
-                    "templ",
-                },
-                sync_install = false,
-                auto_install = true,
-                -- indent = { enable = true },
+            local parsers = {
+                "c",
+                "cpp",
+                "c_sharp",
+                "lua",
+                "vim",
+                "vimdoc",
+                "query",
+                "zig",
+                "python",
+                "javascript",
+                "html",
+                "go",
+                "latex",
+                "markdown",
+                "markdown_inline",
+                "templ",
+                "vim",
+                "vimdoc",
+            }
+            require('nvim-treesitter').install(parsers)
 
-                highlight =
-                {
-                    enabled = true,
-                    disable = function(_, buf)
-                        local max_filesize = 100 * 1024 -- 100 KB
-                        local ok, stats = pcall(
-                        vim.loop.fs_stat,
-                        vim.api.nvim_buf_get_name(buf))
-                        if ok and stats and stats.size > max_filesize then
-                            return true
-                        end
-                        return false
-                    end,
-                    additional_vim_regex_highlighting = false,
-                },
-                -- matchup =
-                -- {
-                --     enable = true,
-                -- },
+            vim.api.nvim_create_autocmd('FileType',
+            {
+                pattern = { 'lua', 'python', 'javascript' },
+                callback = function()
+                    vim.treesitter.start()
+                    vim.wo.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
+                    vim.bo.indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
+                end,
+            })
+
+            vim.api.nvim_create_autocmd('FileType',
+            {
+                pattern = '*',
+                callback = function()
+                    local buf = vim.api.nvim_get_current_buf()
+                    local max_filesize = 100 * 1024 -- 100 KB
+                    local ok, stats = pcall(vim.loop.fs_stat, vim.api.nvim_buf_get_name(buf))
+
+                    if ok and stats and stats.size <= max_filesize then
+                        vim.treesitter.start()
+                    end
+                end,
             })
 
             vim.api.nvim_create_autocmd("BufEnter",
@@ -127,7 +126,7 @@ local plugins =
     {
         -- NOTE: Requires `brew install ripgrep`
         "nvim-telescope/telescope.nvim",
-        tag = "0.1.5",
+        branch = "master",
         dependencies =
         {
             "nvim-treesitter/nvim-treesitter",
@@ -387,7 +386,7 @@ local plugins =
     },
     {
         "nvim-tree/nvim-tree.lua",
-        tag = "v1.3.3",
+        tag = "v1.14.0",
         config = function(_)
             local api = require("nvim-tree.api")
 
@@ -668,7 +667,6 @@ local plugins =
             trouble.setup(
             {
                 position = "bottom",
-                icons = true,
                 mode = "workspace_diagnostics",
                 severity = { vim.diagnostic.severity.WARN, vim.diagnostic.severity.ERROR },
                 group = true,
@@ -717,7 +715,7 @@ local plugins =
             })
 
             vim.keymap.set("n", "wd", function()
-                trouble.toggle("workspace_diagnostics")
+                trouble.toggle("diagnostics")
             end)
             vim.keymap.set("n", "gu", function()
                 trouble.toggle("lsp_references")
@@ -740,8 +738,6 @@ local plugins =
         config = function(_)
             local lspconfig = require('lspconfig')
 
-            -- require("neodev").setup({
-            -- })
             local function filterList(list, shouldKeepFunc)
                 for i = #list, 1, -1 do
                     local d = list[i]
@@ -752,23 +748,37 @@ local plugins =
                 return list
             end
 
-            local function withFilteredDiagnostics(keepDiagnosticFunc)
+            local function withFilteredDiagnostics(c)
                 return function(err, result, context, config)
                     local function pass()
-                        return vim.lsp.diagnostic.on_publish_diagnostics(err, result, context, config)
+                        return vim.lsp.diagnostic.on_publish_diagnostics(err, result, context)
                     end
 
                     if result == nil then
                         return pass()
                     end
 
-                    local diagnostics = result.diagnostics
-                    result.diagnostics = filterList(diagnostics, keepDiagnosticFunc)
+                    if c.shouldFilter ~= nil then
+                        if not c.shouldFilter(result) then
+                            return pass()
+                        end
+                    end
+
+                    if c.keep ~= nil then
+                        local diagnostics = result.diagnostics
+                        result.diagnostics = filterList(diagnostics, c.keep)
+                    end
                     return pass()
                 end
             end
 
-            lspconfig.gopls.setup(
+            local allConfigs = {}
+            local function config(name, opts)
+                table.insert(allConfigs, name)
+                vim.lsp.config(name, opts)
+            end
+
+            config("gopls",
             {
                 settings = (function()
                     local s = {}
@@ -821,7 +831,7 @@ local plugins =
                 },
             })
 
-            lspconfig.lua_ls.setup(
+            config("lua_ls",
             {
 
                 settings = {
@@ -835,39 +845,14 @@ local plugins =
                 },
             })
 
-            -- Doesn't work btw
-            -- https://github.com/LuaLS/lua-language-server/issues/1596#issuecomment-1855087288
-            lspconfig.util.on_setup = lspconfig.util.add_hook_after(lspconfig.util.on_setup, function(config)
-                if config.name == 'lua_ls' then
-                    -- workaround for nvim's incorrect handling of scopes in the workspace/configuration handler
-                    -- https://github.com/folke/neodev.nvim/issues/41
-                    -- https://github.com/LuaLS/lua-language-server/issues/1089
-                    -- https://github.com/LuaLS/lua-language-server/issues/1596
-                    config.handlers = vim.tbl_extend('error', {}, config.handlers)
-                    config.handlers['workspace/configuration'] = function(err, result, context, config_)
-                        local client_id = context.client_id
-                        local client = vim.lsp.get_client_by_id(client_id)
-                        if client and client.workspace_folders and #client.workspace_folders then
-                            if result.items and #result.items > 0 then
-                                if not result.items[1].scopeUri then
-                                    return vim.tbl_map(function(_) return nil end, result.items)
-                                end
-                            end
-                        end
-
-                        return vim.lsp.handlers['workspace/configuration'](err, result, context, config_)
-                    end
-                end
-            end)
-
-            lspconfig.zls.setup(
+            config("zls",
             {
                 on_init = function(_)
                     vim.g.zig_fmt_autosave = false
                 end,
             })
 
-            lspconfig.clangd.setup(
+            config("clangd",
             {
                 on_init = function(_)
                     do
@@ -919,7 +904,8 @@ local plugins =
                 },
             })
 
-            lspconfig.tsserver.setup({
+            config("tsserver",
+            {
                 handlers =
                 {
                     ["textDocument/publishDiagnostics"] = withFilteredDiagnostics(function(d)
@@ -932,15 +918,17 @@ local plugins =
                 },
             })
 
-            lspconfig.templ.setup({})
+            config("templ", {})
 
             for _, lsp in ipairs({ "html", "htmx" }) do
-                lspconfig[lsp].setup({
+                config(lsp,
+                {
                     filetypes = { "html", "templ" },
                 })
             end
 
-            lspconfig.tailwindcss.setup({
+            config("tailwindcss",
+            {
                 filetypes =
                 {
                     "templ",
@@ -1023,6 +1011,8 @@ local plugins =
             end, {
                 desc = "Go to previous error",
             });
+
+            vim.lsp.enable(allConfigs)
         end
     },
     {
