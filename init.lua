@@ -58,7 +58,7 @@ local plugins =
 
             vim.api.nvim_create_autocmd('FileType',
             {
-                pattern = { 'lua', 'python', 'javascript' },
+                pattern = parsers,
                 callback = function()
                     vim.treesitter.start()
                     vim.wo.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
