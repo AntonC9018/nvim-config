@@ -61,8 +61,8 @@ local plugins =
                 pattern = parsers,
                 callback = function()
                     vim.treesitter.start()
-                    vim.wo.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
-                    vim.bo.indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
+                    -- vim.wo.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
+                    -- vim.bo.indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
                 end,
             })
 
@@ -1940,6 +1940,14 @@ table.insert(plugins,
     init = function()
         require('markdowny').setup()
     end,
+})
+
+table.insert(plugins,
+{
+    "folke/lazydev.nvim",
+    ft = "lua", -- only load on lua files
+    opts = {
+    },
 })
 
 require("lazy").setup(plugins);
