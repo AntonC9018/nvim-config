@@ -953,6 +953,12 @@ local plugins =
                 callback = function(ev)
                     noCompletionOnSpaceForTailwind()
 
+                    -- Default commands conflict with other stuff
+                    local lsp_defaults = { "gri" }
+                    for _, key in ipairs(lsp_defaults) do
+                        pcall(vim.keymap.del, "n", key)
+                    end
+
                     ---@diagnostic disable-next-line: inject-field
                     vim.bo[ev.buf].omnifunc = 'v:lua.vim.lsp.omnifunc'
 
@@ -1042,7 +1048,7 @@ local plugins =
                 },
             });
 
-            vim.keymap.set("n", "gr", substitute.operator, { noremap = true, nowait = true })
+            vim.keymap.set("n", "gr", substitute.operator, { noremap = true })
             vim.keymap.set("n", "grr", substitute.line, { noremap = true, nowait = true })
             vim.keymap.set("x", "gr", substitute.visual, { noremap = true, nowait = true })
 
