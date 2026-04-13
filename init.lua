@@ -53,22 +53,13 @@ local plugins =
                 "templ",
                 "vim",
                 "vimdoc",
+                "bash",
             }
             require('nvim-treesitter').install(parsers)
 
             vim.api.nvim_create_autocmd('FileType',
             {
                 pattern = parsers,
-                callback = function()
-                    vim.treesitter.start()
-                    -- vim.wo.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
-                    -- vim.bo.indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
-                end,
-            })
-
-            vim.api.nvim_create_autocmd('FileType',
-            {
-                pattern = '*',
                 callback = function()
                     local buf = vim.api.nvim_get_current_buf()
                     local max_filesize = 100 * 1024 -- 100 KB
@@ -408,8 +399,7 @@ local plugins =
 
                 -- Need to work around, because explorer.exe can only open 1 directory deep.
                 local function getParentPathAndFileName()
-                    local lib = require("nvim-tree.lib")
-                    local node = lib.get_node_at_cursor()
+                    local node = api.tree.get_node_under_cursor()
                     if node == nil then
                         return nil
                     end
@@ -646,6 +636,7 @@ local plugins =
         end,
     },
     {
+        -- "ys" is the bind
         'kylechui/nvim-surround',
         config = function(_)
             require("nvim-surround").setup(
@@ -778,6 +769,8 @@ local plugins =
                 vim.lsp.config(name, opts)
             end
 
+            config("pyright", {})
+
             config("gopls",
             {
                 settings = (function()
@@ -830,7 +823,6 @@ local plugins =
 
             config("lua_ls",
             {
-
                 settings = {
                     Lua = {
                         workspace = {
@@ -1050,9 +1042,9 @@ local plugins =
                 },
             });
 
-            vim.keymap.set("n", "gr", substitute.operator)
-            vim.keymap.set("n", "grr", substitute.line)
-            vim.keymap.set("x", "gr", substitute.visual)
+            vim.keymap.set("n", "gr", substitute.operator, { noremap = true, nowait = true })
+            vim.keymap.set("n", "grr", substitute.line, { noremap = true, nowait = true })
+            vim.keymap.set("x", "gr", substitute.visual, { noremap = true, nowait = true })
 
             local exchange = require("substitute.exchange")
 
@@ -1138,6 +1130,8 @@ local plugins =
                 {
                     require("copilot_cmp.comparators").prioritize,
 
+                    cmp.config.compare.locality,
+                    cmp.config.compare.recently_used,
                     cmp.config.compare.kind,
                     cmp.config.compare.exact,
                     cmp.config.compare.order,
@@ -1145,8 +1139,6 @@ local plugins =
                     cmp.config.compare.offset,
                     -- cmp.config.compare.scopes,
                     cmp.config.compare.score,
-                    cmp.config.compare.recently_used,
-                    cmp.config.compare.locality,
                     cmp.config.compare.sort_text,
                     cmp.config.compare.length,
                 },
@@ -1156,10 +1148,17 @@ local plugins =
             cmp.setup(
             {
                 enabled = function()
+                    -- Disable in operator-pending mode
+                    local mode = vim.api.nvim_get_mode().mode
+                    if mode == 'no' or mode == 'nov' or mode == 'noV' then
+                        return false
+                    end
+
                     local bufType = vim.api.nvim_get_option_value("buftype", { buf = 0 })
                     if (bufType ~= "prompt") then
                         return true
                     end
+
                     local cmpDap = require("cmp_dap")
                     if cmpDap.is_dap_buffer() then
                         return true
@@ -1458,6 +1457,11 @@ table.insert(plugins,
             suggestion =
             {
                 enabled = false,
+            },
+            filetypes =
+            {
+                yaml = true,
+                markdown = true,
             },
         })
     end,
