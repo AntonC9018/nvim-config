@@ -24,7 +24,7 @@ local plugins =
 {
     {
         'nvim-telescope/telescope-fzf-native.nvim',
-        build = 'cmake -S. -Bbuild -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release && cmake --install build --prefix build'
+        build = 'cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -S. -Bbuild -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release && cmake --install build --prefix build'
     },
     {
         "nvim-treesitter/nvim-treesitter",
@@ -55,7 +55,7 @@ local plugins =
                 "vimdoc",
                 "bash",
             }
-            require('nvim-treesitter').install(parsers)
+            require('nvim-treesitter').setup({ ensure_install = parsers })
 
             vim.api.nvim_create_autocmd('FileType',
             {
@@ -542,7 +542,7 @@ local plugins =
                 },
                 diagnostics =
                 {
-                    enable = true,
+                    enable = false,
                 },
                 hijack_cursor = true,
                 ui =
@@ -613,7 +613,7 @@ local plugins =
         end,
     },
     {
-        'phaazon/hop.nvim',
+        'smoka7/hop.nvim',
         config = function(_)
             local hop = require("hop")
             hop.setup(
@@ -724,11 +724,9 @@ local plugins =
         dependencies =
         {
             "williamboman/mason.nvim",
-            "folke/neodev.nvim",
+            -- "folke/neodev.nvim",
         },
         config = function(_)
-            local lspconfig = require('lspconfig')
-
             local function filterList(list, shouldKeepFunc)
                 for i = #list, 1, -1 do
                     local d = list[i]
@@ -823,15 +821,7 @@ local plugins =
 
             config("lua_ls",
             {
-                settings = {
-                    Lua = {
-                        workspace = {
-                            library = {
-                                "/mnt/d/include/wow/library",
-                            },
-                        },
-                    },
-                },
+                -- enabled=false,
             })
 
             config("zls",
@@ -863,7 +853,7 @@ local plugins =
                         local filePath
                         if helper.isWindows() then
                             filePath = vim.fn.expand("$LocalAppData") .. "\\clangd\\config.yaml"
-                        else if vim.fn.has("mac") == 1 then
+                        elseif vim.fn.has("mac") == 1 then
                             filePath = vim.fn.expand("~/Library/Preferences/clangd/config.yaml")
                         else
                             filePath = vim.fn.expand("$XDG_CONFIG_HOME") .. "/clangd/config.yaml"
@@ -883,7 +873,6 @@ local plugins =
                                     [[Add: [ "-std=c++20", "-Wall", "-Wconversion", "-Werror" ] ]],
                                 },
                                 filePath)
-                            end
                         end
                     end
                 end,
@@ -893,7 +882,7 @@ local plugins =
                 },
             })
 
-            config("tsserver",
+            config("ts_ls",
             {
                 handlers =
                 {
@@ -1072,15 +1061,12 @@ local plugins =
             'L3MON4D3/LuaSnip',
             'saadparwaiz1/cmp_luasnip',
             "petertriho/cmp-git",
-            "zbirenbaum/copilot-cmp",
         },
         config = function(_)
             local cmp = require('cmp')
-            require("copilot_cmp").setup()
 
             local defaultSources = cmp.config.sources(
             {
-                -- { name = 'copilot' },
                 {
                     name = "nvim_lsp",
 
@@ -1134,8 +1120,6 @@ local plugins =
                 priority_weight = 2,
                 comparators =
                 {
-                    require("copilot_cmp.comparators").prioritize,
-
                     cmp.config.compare.locality,
                     cmp.config.compare.recently_used,
                     cmp.config.compare.kind,
@@ -1193,23 +1177,6 @@ local plugins =
                     'error',
                     defaultMapping,
                     {
-                        ["<C-\\>"] = function(_)
-                            if cmp.visible() then
-                                cmp.abort()
-                            end
-                            cmp.complete(
-                            {
-                                config =
-                                {
-                                    sources =
-                                    {
-                                        {
-                                            name = 'copilot',
-                                        },
-                                    },
-                                },
-                            })
-                        end,
                         ['<Esc>'] = function(fallback)
                             if not cmp.visible() then
                                 fallback()
@@ -1246,7 +1213,6 @@ local plugins =
                 sources = cmp.config.sources(
                 {
                     { name = 'git' },
-                    { name = 'copilot' },
                     { name = 'buffer' },
                 })
             })
@@ -1453,6 +1419,7 @@ table.insert(plugins,
     "zbirenbaum/copilot.lua",
     -- cmd = "Copilot",
     -- event = "InsertEnter",
+    enabled = false,
     config = function()
         require("copilot").setup(
         {
@@ -1504,7 +1471,7 @@ table.insert(plugins,
     {
         "nvim-lua/plenary.nvim"
     },
-    init = function()
+    config = function()
         local spectre = require("spectre")
         local opts = {
             desc = "Search and Replace",
@@ -1627,7 +1594,7 @@ table.insert(plugins,
     {
         "nvim-treesitter/nvim-treesitter",
     },
-    init = function()
+    config = function()
         local context = require("treesitter-context");
         context.setup({
             max_lines = 5,
@@ -1758,18 +1725,9 @@ table.insert(plugins,
     dependencies =
     {
         "mfussenegger/nvim-dap",
-    },
-})
-
-table.insert(plugins,
-{
-    "rcarriga/nvim-dap-ui",
-    dependencies =
-    {
-        "mfussenegger/nvim-dap",
         "nvim-neotest/nvim-nio",
     },
-    init = function(_)
+    config = function(_)
         require("dapui").setup()
         local dap, dapui = require("dap"), require("dapui")
         dap.listeners.before.attach.dapui_config = function()
@@ -1790,7 +1748,7 @@ table.insert(plugins,
 table.insert(plugins,
 {
     "stevearc/overseer.nvim",
-    init = function()
+    config = function()
         require('overseer').setup()
     end,
 })
@@ -1805,7 +1763,7 @@ table.insert(plugins,
         "Joakker/lua-json5",
         "theHamsta/nvim-dap-virtual-text",
     },
-    init = function(_)
+    config = function(_)
         local dap = require("dap")
 
         ---@diagnostic disable-next-line: undefined-field
@@ -1947,7 +1905,7 @@ table.insert(plugins,
     -- C-i  --  toggle italic
     -- C-e  --  toggle code block
     "antonk52/markdowny.nvim",
-    init = function()
+    config = function()
         require('markdowny').setup()
     end,
 })
