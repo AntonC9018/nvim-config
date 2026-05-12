@@ -3,6 +3,14 @@ require("core.mappings")
 require("core.terminal")
 local helper = require("core.helper")
 
+-- Default commands conflict with other stuff
+do
+    local lsp_defaults = { "gri", "grr", "gre" }
+    for _, key in ipairs(lsp_defaults) do
+        pcall(vim.keymap.del, "n", key)
+    end
+end
+
 do
     local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
     ---@diagnostic disable-next-line: undefined-field
@@ -55,7 +63,8 @@ local plugins =
                 "vimdoc",
                 "bash",
             }
-            require('nvim-treesitter').setup({ ensure_install = parsers })
+            require('nvim-treesitter').setup()
+            require('nvim-treesitter').install(parsers)
 
             vim.api.nvim_create_autocmd('FileType',
             {
@@ -66,7 +75,10 @@ local plugins =
                     local ok, stats = pcall(vim.loop.fs_stat, vim.api.nvim_buf_get_name(buf))
 
                     if ok and stats and stats.size <= max_filesize then
-                        vim.treesitter.start()
+                        local lang = vim.treesitter.language.get_lang(vim.bo.filetype)
+                        if lang and pcall(vim.treesitter.language.inspect, lang) then
+                            vim.treesitter.start()
+                        end
                     end
                 end,
             })
@@ -120,8 +132,8 @@ local plugins =
         branch = "master",
         dependencies =
         {
-            "nvim-treesitter/nvim-treesitter",
             "nvim-lua/plenary.nvim",
+            "nvim-treesitter/nvim-treesitter",
             "nvim-tree/nvim-web-devicons",
             -- 'MunifTanjim/nui.nvim',
             'jonarrien/telescope-cmdline.nvim',
@@ -377,7 +389,7 @@ local plugins =
     },
     {
         "nvim-tree/nvim-tree.lua",
-        tag = "v1.14.0",
+        tag = "v1.17.0",
         config = function(_)
             local api = require("nvim-tree.api")
 
@@ -390,40 +402,31 @@ local plugins =
 
             local function onAttach(bufnr)
                 local function set(binding, action, desc)
-                    vim.keymap.set('n', binding, action,
-                    {
+                    vim.keymap.set('n', binding, action, {
                         buffer = bufnr,
                         desc = desc,
                     })
                 end
 
-                -- Need to work around, because explorer.exe can only open 1 directory deep.
-                local function getParentPathAndFileName()
-                    local node = api.tree.get_node_under_cursor()
-                    if node == nil then
-                        return nil
-                    end
-                    local absolutePath = node.absolute_path
-                    local plenary = require("plenary.path")
-                    local path = plenary:new(absolutePath);
-                    if path:is_dir() then
-                        return vim.fn.shellescape(absolutePath), nil
-                    else
-                        local directoryPath = path:parent():absolute()
-                        -- There's no function for getting the last segment, so working around, again.
-                        local name = path:make_relative(directoryPath)
-                        return vim.fn.shellescape(directoryPath), vim.fn.shellescape(name)
-                    end
-                end
-
-                -- action is either "select" or "start"
                 local function doExplorer(action)
-                    local directoryPath, fileName = getParentPathAndFileName()
-                    if fileName == nil then
-                        vim.cmd("silent !cd " .. directoryPath .. "; explorer.exe .")
+                    local node = api.tree.get_node_under_cursor()
+                    if node == nil then return end
+
+                    local Path = require("plenary.path")
+                    local path = Path:new(node.absolute_path)
+
+                    local dir, args
+                    if path:is_dir() then
+                        dir = node.absolute_path
+                        args = { "explorer.exe", "." }
                     else
-                        vim.cmd("silent !cd " .. directoryPath .. "; explorer.exe /" .. action .. "," .. fileName)
+                        local parentDir = path:parent():absolute()
+                        local name = path:make_relative(parentDir)
+                        dir = parentDir
+                        args = { "explorer.exe", "/" .. action .. "," .. name }
                     end
+
+                    vim.fn.jobstart(args, { cwd = dir, detach = true })
                 end
 
                 set('<Esc>', api.tree.close, "Close")
@@ -436,9 +439,7 @@ local plugins =
                 set('<F2>', api.fs.rename_basename, "Rename")
                 set('s', api.fs.rename, "Rename (including extension)")
                 set('<2-LeftMouse>', api.node.open.edit, "Edit")
-                set('o', function()
-                    doExplorer("select")
-                end, "Open in Explorer")
+                set('o', function() doExplorer("select") end, "Open in Explorer")
                 set("y", api.fs.copy.node, "Copy")
                 set("x", api.fs.cut, "Cut")
                 set("p", api.fs.paste, "Paste")
@@ -453,116 +454,87 @@ local plugins =
                 set('r', api.fs.copy.relative_path, "Copy relative path")
                 set('P', api.fs.copy.absolute_path, "Copy absolute path")
                 set('a', api.fs.create, "Create file or directory (append / at end for a directory)")
-                -- set('R', api.node.run.system, "Run (system)")
-                set('R', function()
-                    doExplorer("start")
-                end, "Run (system)")
+                set('R', function() doExplorer("start") end, "Run (system)")
                 set('Y', api.fs.copy.filename, "Copy filename")
                 set('<C-g>', api.tree.toggle_help, "Help")
                 set('e', api.tree.close, "Close")
                 set('W', function()
-                    local core = require("nvim-tree.core")
-                    local explorer = core.get_explorer()
-                    if (explorer == nil) then
-                        return
-                    end
-                    local newCwd = explorer.absolute_path
-                    local command = string.format(":cd %s", newCwd)
-                    vim.cmd(command)
+                    local node = api.tree.get_nodes()
+                    if node == nil then return end
+                    local newCwd = node.absolute_path
+                    vim.cmd(string.format(":cd %s", newCwd))
                     print("Changed CWD to " .. newCwd)
                 end, "Change the current working directory to this")
 
                 local timeoutLenOption = vim.o.timeoutlen
-                ---@diagnostic disable-next-line: inject-field
                 vim.o.timeoutlen = 1
-                vim.api.nvim_create_autocmd("BufEnter",
-                {
+                vim.api.nvim_create_autocmd("BufEnter", {
                     buffer = bufnr,
                     callback = function()
-                        ---@diagnostic disable-next-line: inject-field
                         vim.o.timeoutlen = 1
                     end,
                 })
-                vim.api.nvim_create_autocmd("BufLeave",
-                {
+                vim.api.nvim_create_autocmd("BufLeave", {
                     buffer = bufnr,
                     callback = function()
-                        ---@diagnostic disable-next-line: inject-field
                         vim.o.timeoutlen = timeoutLenOption
                     end,
                 })
             end
 
-            require("nvim-tree").setup(
-            {
-                actions =
-                {
-                    open_file =
-                    {
+            require("nvim-tree").setup({
+                actions = {
+                    open_file = {
                         quit_on_open = true,
-                        window_picker =
-                        {
+                        window_picker = {
                             enable = false,
                         },
                     },
                 },
                 on_attach = onAttach,
-                filters =
-                {
+                filters = {
                     dotfiles = true,
                 },
-                -- sync_root_with_cwd = true,
-                renderer =
-                {
+                renderer = {
                     add_trailing = true,
                     indent_width = 4,
                     highlight_diagnostics = "name",
                     highlight_clipboard = "name",
                     highlight_bookmarks = "name",
-                    icons =
-                    {
-                        glyphs =
-                        {
-                            git =
-                            {
+                    icons = {
+                        glyphs = {
+                            git = {
                                 unstaged = "×",
                                 staged = "✓",
-                                unmerged = "",
+                                unmerged = "",
                                 renamed = "R",
-                                untracked = "N", -- new
+                                untracked = "N",
                                 deleted = "D",
                                 ignored = "◌",
                             },
                         },
                     },
                 },
-                git =
-                {
+                git = {
                     cygwin_support = true,
                 },
-                diagnostics =
-                {
+                diagnostics = {
                     enable = false,
                 },
                 hijack_cursor = true,
-                ui =
-                {
-                    confirm =
-                    {
+                ui = {
+                    confirm = {
                         default_yes = true,
                     },
                 },
-                view =
-                {
+                view = {
                     relativenumber = true,
                     width = "100%",
                 },
-                -- select_prompts = true,
             })
 
             local tree = require('nvim-tree.api').tree
 
-            -- Explorer
             vim.keymap.set('n', 'we', function()
                 if tree.is_tree_buf(0) then
                     tree.close()
@@ -574,8 +546,7 @@ local plugins =
             })
 
             vim.keymap.set('n', 'wE', function()
-                tree.open(
-                {
+                tree.open({
                     find_file = true,
                     update_root = true,
                 })
@@ -639,14 +610,10 @@ local plugins =
         -- "ys" is the bind
         'kylechui/nvim-surround',
         config = function(_)
+            vim.g.nvim_surround_no_insert_mappings = true
+
             require("nvim-surround").setup(
-            ---@diagnostic disable-next-line: missing-fields
             {
-                keymaps =
-                {
-                    insert = false,
-                    insert_line = false,
-                },
             })
         end
     },
@@ -941,13 +908,7 @@ local plugins =
                 group = vim.api.nvim_create_augroup('UserLspConfig', {}),
                 callback = function(ev)
                     noCompletionOnSpaceForTailwind()
-
-                    -- Default commands conflict with other stuff
-                    local lsp_defaults = { "gri" }
-                    for _, key in ipairs(lsp_defaults) do
-                        pcall(vim.keymap.del, "n", key)
-                    end
-
+                    ---
                     ---@diagnostic disable-next-line: inject-field
                     vim.bo[ev.buf].omnifunc = 'v:lua.vim.lsp.omnifunc'
 
