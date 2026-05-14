@@ -1902,7 +1902,6 @@ table.insert(plugins,
         do
             local vscode = require("dap.ext.vscode")
             vscode.json_decode = require("json5").parse
-            vscode.load_launchjs(nil, { lldb = { "cpp", "c", "zig" } })
         end
 
         local function setSign(signName, symbol)
