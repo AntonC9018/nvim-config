@@ -177,88 +177,143 @@ local plugins =
             telescope.setup({
                 defaults =
                 {
-                    mappings =
-                    {
-                        i =
-                        {
-                            ["<C-Y>"] = copyAllEntries,
-                            ["<C-y>"] = copySelectedEntry,
-                            -- ["<C-n>"] = false,
-                            -- ["<C-p>"] = false,
-                            ["<C-x>"] = false,
-                            ["<C-v>"] = false,
-                            ["<C-t>"] = false,
-                            ["<C-f>"] = false,
-                            ["<PageUp>"] = false,
-                            ["<PageDown>"] = false,
-                            ["<M-f>"] = false,
-                            ["<M-k>"] = false,
-                            ["<C-q>"] = false,
-                            ["<M-q>"] = false,
-                            [helper.controlSlash()] = false,
-                            ["<C-w>"] = deleteWordBack,
-                            ["<C-BS>"] = deleteWordBack,
-                            ["<C-h>"] = deleteWordBack,
-                            ["<C-r><C-w>"] = false,
-                            ["<C-u>"] = false,
-                            ["<C-d>"] = false,
+                    mappings = (function()
+                        insert = {}
+                        normal = {}
 
-                            [helpKey] = actions.which_key,
-                            ["<C-j>"] = actions.move_selection_next,
-                            ["<C-k>"] = actions.move_selection_previous,
-                            ["<C-c>"] = actions.close,
-                            ["<Down>"] = actions.move_selection_next,
-                            ["<Up>"] = actions.move_selection_previous,
-                            ["<CR>"] = actions.select_default,
-                            ["<C-p>"] = require('telescope.actions').cycle_history_next,
-                            ["<C-n>"] = require('telescope.actions').cycle_history_prev,
-                        },
-                        n =
-                        {
-                            ["<C-Y>"] = copyAllEntries,
-                            ["<C-y>"] = copySelectedEntry,
-                            ["<esc>"] = actions.close,
-                            ["<CR>"] = actions.select_default,
-                            ["<C-x>"] = false,
-                            ["<C-v>"] = false,
-                            ["<C-t>"] = false,
-                            ["<C-q>"] = false,
-                            ["<M-q>"] = false,
+                        -- Remove defaults
+                        insert["<C-x>"] = false
+                        insert["<C-v>"] = false
+                        insert["<C-t>"] = false
+                        insert["<C-f>"] = false
+                        insert["<PageUp>"] = false
+                        insert["<PageDown>"] = false
+                        insert["<M-f>"] = false
+                        insert["<C-q>"] = false
+                        insert["<M-q>"] = false
+                        insert["<C-r><C-w>"] = false
+                        insert["<C-u>"] = false
+                        insert["<C-d>"] = false
+                        insert[helper.controlSlash()] = false
+                        normal["<C-x>"] = false
+                        normal["<C-v>"] = false
+                        normal["<C-t>"] = false
+                        normal["<C-q>"] = false
+                        normal["<M-q>"] = false
+                        normal["H"] = false
+                        normal["L"] = false
+                        normal["<C-u>"] = false
+                        normal["<C-d>"] = false
+                        normal["<C-k>"] = false
+                        normal["<C-j>"] = false
+                        normal["<C-f>"] = false
+                        normal["<PageUp>"] = false
+                        normal["<PageDown>"] = false
+                        normal["<M-f>"] = false
+                        normal["<M-k>"] = false
 
-                            ["j"] = actions.move_selection_next,
-                            ["k"] = actions.move_selection_previous,
-                            ["H"] = false,
-                            ["M"] = actions.move_to_middle,
-                            ["L"] = false,
+                        local function setBothInsertAndNormal(key, action)
+                            insert[key] = action
+                            normal[key] = action
+                        end
+                        local function setall(obj, keys, action)
+                            for _, key in ipairs(keys) do
+                                obj[key] = action
+                            end
+                        end
+                        local function setAllInsert(keys, action)
+                            setall(insert, keys, action)
+                        end
+                        local function setAllNormal(keys, action)
+                            setall(normal, keys, action)
+                        end
 
-                            ["<Down>"] = actions.move_selection_next,
-                            ["<Up>"] = actions.move_selection_previous,
-                            ["gg"] = actions.move_to_top,
-                            ["G"] = actions.move_to_bottom,
+                        insert["<C-Y>"] = copyAllEntries
+                        insert["<C-y>"] = copySelectedEntry
 
-                            -- ["p"] = function(bufnr)
-                            -- local escapeSpecialKeys = true
-                            -- vim.api.nvim_feedkeys('i^R"^[', 'm', escapeSpecialKeys)
-                            -- end,
-                            -- ["<leader>p"] = function(bufnr)
-                            --  local escapeSpecialKeys = true
-                            -- vim.api.nvim_feedkeys('i^R*^[', 'm', escapeSpecialKeys)
-                            -- end,
+                        setBothInsertAndNormal(helpKey, actions.which_key)
+                        setBothInsertAndNormal("<C-i>", function(prompt_bufnr)
+                            -- CHAT GPT CODE!!
+                            -- Probably doesn't work properly
+                            local action_state = require("telescope.actions.state")
+                            local builtin = require("telescope.builtin")
+                            local picker = action_state.get_current_picker(prompt_bufnr)
 
-                            ["<C-u>"] = false,
-                            ["<C-d>"] = false,
-                            ["<C-k>"] = false,
-                            ["<C-j>"] = false,
-                            ["<C-f>"] = false,
+                            -- 1. Get the prompt and the original options
+                            local current_input = action_state.get_current_line()
+                            local title = picker.prompt_title
 
-                            ["<PageUp>"] = false,
-                            ["<PageDown>"] = false,
-                            ["<M-f>"] = false,
-                            ["<M-k>"] = false,
+                            -- This table contains the options the picker was started with
+                            -- We make a shallow copy so we don't modify the original state accidentally
+                            local opts = vim.tbl_extend("force", {}, picker.original_opts or {})
 
-                            [helpKey] = actions.which_key,
-                        },
-                    },
+                            -- 2. Define our toggle state
+                            local is_hidden = title:find("Hidden") ~= nil
+                            local is_file_search = title:find("Find Files") ~= nil
+                            local is_text_search = title:find("Live Grep") ~= nil
+
+                            -- 3. Update the options for the new search
+                            opts.default_text = current_input
+
+                            if is_file_search then
+                                opts.hidden = not is_hidden
+                                opts.prompt_title = not is_hidden and "Find Files (Hidden)" or "Find Files"
+
+                                require("telescope.actions").close(prompt_bufnr)
+                                builtin.find_files(opts)
+
+                            elseif is_text_search then
+                                opts.prompt_title = not is_hidden and "Live Grep (Hidden)" or "Live Grep"
+
+                                -- Handle ripgrep arguments for hidden files
+                                local args = opts.additional_args
+                                if type(args) == "function" then args = args() end
+                                args = args or {}
+
+                                if not is_hidden then
+                                    table.insert(args, "--hidden")
+                                else
+                                    -- Remove --hidden if it exists
+                                    for i, v in ipairs(args) do
+                                        if v == "--hidden" then table.remove(args, i) end
+                                    end
+                                end
+
+                                opts.additional_args = function() return args end
+
+                                require("telescope.actions").close(prompt_bufnr)
+                                builtin.live_grep(opts)
+
+                            else
+                                vim.notify("Hidden toggle not supported for: " .. title, vim.log.levels.WARN)
+                            end
+                        end)
+
+                        setAllInsert({ "<C-w>", "<C-BS>", "<C-h>" }, deleteWordBack)
+                        setAllInsert({ "<C-j>", "<C-DOWN>" }, actions.move_selection_next)
+                        setAllInsert({ "<C-j>", "<DOWN>" }, actions.move_selection_next)
+                        setAllInsert({ "<C-k>", "<UP>" }, actions.move_selection_previous)
+                        setAllNormal({ "j", "<DOWN>" }, actions.move_selection_next)
+                        setAllNormal({ "k", "<UP>" }, actions.move_selection_previous)
+                        insert["<C-c>"] = actions.close
+                        insert["<CR>"] = actions.select_default
+
+                        local actions = require('telescope.actions')
+                        setBothInsertAndNormal("<M-j>", actions.cycle_history_next)
+                        setBothInsertAndNormal("<M-k>", actions.cycle_history_prev)
+
+                        normal["<C-Y>"] = copyAllEntries
+                        normal["<C-y>"] = copySelectedEntry
+                        normal["<esc>"] = actions.close
+                        normal["<CR>"] = actions.select_default
+                        normal["M"] = actions.move_to_middle
+                        normal["gg"] = actions.move_to_top
+                        normal["G"] = actions.move_to_bottom
+                        return {
+                            i = insert,
+                            n = normal,
+                        }
+                    end)(),
                     selection_caret = '',
                     prompt_prefix = '',
                     entry_prefix = '',
@@ -279,6 +334,11 @@ local plugins =
                         return helper.formatPath(path)
                     end,
                     dynamic_preview_title = true,
+                    history =
+                    {
+                        path = vim.fn.stdpath('data') .. '/telescope_history',
+                        limit = 1000,
+                    },
                 },
                 extensions =
                 {
@@ -691,6 +751,7 @@ local plugins =
         dependencies =
         {
             "williamboman/mason.nvim",
+            "williamboman/mason-lspconfig.nvim",
             -- "folke/neodev.nvim",
         },
         config = function(_)
@@ -728,10 +789,11 @@ local plugins =
                 end
             end
 
-            local allConfigs = {}
+            local allConfigOptions = {}
+            local allConfigNames = {}
             local function config(name, opts)
-                table.insert(allConfigs, name)
-                vim.lsp.config(name, opts)
+                table.insert(allConfigOptions, opts)
+                table.insert(allConfigNames, name)
             end
 
             config("pyright", {})
@@ -788,7 +850,6 @@ local plugins =
 
             config("lua_ls",
             {
-                -- enabled=false,
             })
 
             config("zls",
@@ -903,6 +964,11 @@ local plugins =
                 end
             end
 
+            require("mason").setup()
+            require("mason-lspconfig").setup({
+                ensure_installed = allConfigNames
+            })
+
             vim.api.nvim_create_autocmd('LspAttach',
             {
                 group = vim.api.nvim_create_augroup('UserLspConfig', {}),
@@ -953,14 +1019,25 @@ local plugins =
                 vim.diagnostic.goto_next()
             end, {
                 desc = "Go to next error",
-            });
+            })
             vim.keymap.set("n", "gE", function()
                 vim.diagnostic.goto_prev()
             end, {
                 desc = "Go to previous error",
-            });
+            })
 
-            vim.lsp.enable(allConfigs)
+            require("mason").setup()
+            require("mason-lspconfig").setup({
+                ensure_installed = allConfigNames,
+            })
+
+            for i, _ in ipairs(allConfigOptions) do
+                opts = allConfigOptions[i]
+                name = allConfigNames[i]
+                vim.lsp.config(name, opts)
+            end
+            vim.lsp.enable(allConfigNames)
+
         end
     },
     {
