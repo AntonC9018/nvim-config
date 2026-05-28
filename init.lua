@@ -964,11 +964,6 @@ local plugins =
                 end
             end
 
-            require("mason").setup()
-            require("mason-lspconfig").setup({
-                ensure_installed = allConfigNames
-            })
-
             vim.api.nvim_create_autocmd('LspAttach',
             {
                 group = vim.api.nvim_create_augroup('UserLspConfig', {}),
@@ -1028,7 +1023,7 @@ local plugins =
 
             require("mason").setup()
             require("mason-lspconfig").setup({
-                ensure_installed = allConfigNames,
+                --ensure_installed = allConfigNames,
             })
 
             for i, _ in ipairs(allConfigOptions) do
