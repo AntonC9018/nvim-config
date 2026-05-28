@@ -43,6 +43,7 @@
   "overseer.nvim": { "branch": "master", "commit": "f818eefff81f4b12fb7cf236f1b6c16768a2fcbc" },
   "plenary.nvim": { "branch": "master", "commit": "74b06c6c75e4eeb3108ec01852001636d85a932b" },
   "promise-async": { "branch": "main", "commit": "119e8961014c9bfaf1487bf3c2a393d254f337e2" },
+  "roslyn.nvim": { "branch": "main", "commit": "426984d6c1e8ee88a394a562eb925e687340f91e" },
   "substitute.nvim": { "branch": "main", "commit": "0d2077398552f069abccbd964a26dd7cd26882cd" },
   "targets.vim": { "branch": "master", "commit": "6325416da8f89992b005db3e4517aaef0242602e" },
   "telescope-cmdline.nvim": { "branch": "main", "commit": "b1c330835563c9628ce7c095cf20772f22f93f07" },

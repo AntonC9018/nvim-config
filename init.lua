@@ -1021,7 +1021,13 @@ local plugins =
                 desc = "Go to previous error",
             })
 
-            require("mason").setup()
+            require("mason").setup({
+                registries =
+                {
+                    "github:mason-org/mason-registry",
+                    "github:Crashdummyy/mason-registry",
+                },
+            })
             require("mason-lspconfig").setup({
                 --ensure_installed = allConfigNames,
             })
@@ -1948,6 +1954,20 @@ table.insert(plugins,
     ft = "lua", -- only load on lua files
     opts = {
     },
+})
+
+table.insert(plugins,
+{
+    "seblyng/roslyn.nvim",
+    ft = "cs",
+    dependencies =
+    {
+        "mason.nvim",
+        "neovim/nvim-lspconfig",
+    },
+    config = function()
+        require("roslyn").setup({})
+    end,
 })
 
 require("lazy").setup(plugins);
