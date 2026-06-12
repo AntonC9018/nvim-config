@@ -5,7 +5,7 @@ local helper = require("core.helper")
 
 -- Default commands conflict with other stuff
 do
-    local lsp_defaults = { "gri", "grr", "gre" }
+    local lsp_defaults = { "gri", "grr", "gre", "gra" }
     for _, key in ipairs(lsp_defaults) do
         pcall(vim.keymap.del, "n", key)
     end
@@ -53,6 +53,7 @@ local plugins =
                 "zig",
                 "python",
                 "javascript",
+                "typescript",
                 "html",
                 "go",
                 "latex",
@@ -79,6 +80,15 @@ local plugins =
                         if lang and pcall(vim.treesitter.language.inspect, lang) then
                             vim.treesitter.start()
                         end
+                    end
+                end,
+            })
+
+            vim.api.nvim_create_autocmd("FileType", {
+                pattern = { "javascript", "typescript", "typescriptreact", "javascriptreact" },
+                callback = function(args)
+                    if vim.treesitter.highlighter.active[args.buf] ~= nil then
+                        vim.keymap.set("n", "=", vim.lsp.buf.format, { buffer = args.buf })
                     end
                 end,
             })
@@ -682,55 +692,65 @@ local plugins =
         dependencies = { "nvim-tree/nvim-web-devicons" },
         config = function(_)
             local trouble = require("trouble");
-            trouble.setup(
-            {
-                position = "bottom",
-                mode = "workspace_diagnostics",
-                severity = { vim.diagnostic.severity.WARN, vim.diagnostic.severity.ERROR },
-                group = true,
-                padding = false,
-                cycle_results = false,
-                action_keys =
+            require("trouble").setup(
                 {
-                    close = "<esc>", -- close the list
-                    refresh = "<C-r>",
-                    jump = { "<cr>", "<2-leftmouse>" },
-                    -- open_tab = { "<c-t>" }, -- open buffer in new tab
-                    jump_close = "gd",
-                    toggle_mode = "m", -- workspace / document
-                    switch_severity = "s",
-                    toggle_preview = "P",
-                    hover = "<C-i>",
-                    preview = "p",
-                    open_code_href = "x",
-                    toggle_fold = "L",
-                    previous = "k",
-                    next = "j",
-                    help = helper.controlSlash(),
-                },
-                multiline = true,
-                indent_lines = true,
-                win_config = { border = "single" },
-                auto_close = false,
-                auto_preview = true,
-                auto_fold = false,
-                auto_jump = { "lsp_definitions" },
-                include_declaration =
-                {
-                    "lsp_references",
-                    "lsp_implementations",
-                    "lsp_definitions",
-                },
-                signs =
-                {
-                    error = "",
-                    warning = "",
-                    hint = "",
-                    information = "",
-                    other = "",
-                },
-                use_diagnostic_signs = false,
-            })
+                    auto_close = false,
+                    auto_preview = true,
+                    auto_jump = false,
+                    focus = false,
+                    follow = true,
+                    restore = true,
+                    multiline = true,
+                    indent_guides = true,
+                    win =
+                    {
+                        position = "bottom",
+                        border = "single",
+                        padding = false,
+                        wo =
+                        {
+                            winhighlight = "Normal:TroubleNormal,NormalNC:TroubleNormalNC",
+                            winhl = "Normal:TroubleNormal",
+                        },
+                    },
+                    preview =
+                    {
+                        type = "main",
+                        scratch = true,
+                    },
+                    keys =
+                    {
+                        ["<esc>"]               = "cancel",
+                        ["<C-r>"]               = "refresh",
+                        ["<cr>"]                = "jump",
+                        ["<2-leftmouse>"]       = "jump",
+                        o                       = "jump_close",
+                        gd                      = "jump_close",
+                        P                       = "toggle_preview",
+                        p                       = "preview",
+                        L                       = "fold_toggle",
+                        k                       = "prev",
+                        j                       = "next",
+                        [helper.controlSlash()] = "help",
+                    },
+                    modes =
+                    {
+                        diagnostics =
+                        {
+                            filter = { 
+                                severity = { 
+                                    vim.diagnostic.severity.WARN, 
+                                    vim.diagnostic.severity.ERROR,
+                                    vim.diagnostic.severity.HINT,
+                                },
+                            },
+                            group = true,
+                            cycle_results = false,
+                            auto_jump = false,
+                            win = { position = "bottom", border = "single" },
+                        },
+                    },
+                })
 
             vim.keymap.set("n", "wd", function()
                 trouble.toggle("diagnostics")
@@ -752,6 +772,7 @@ local plugins =
         {
             "williamboman/mason.nvim",
             "williamboman/mason-lspconfig.nvim",
+            "mrjones2014/codesettings.nvim",
             -- "folke/neodev.nvim",
         },
         config = function(_)
@@ -910,22 +931,15 @@ local plugins =
                 },
             })
 
-            config("ts_ls",
+            vim.lsp.config('vtsls', 
             {
-                handlers =
-                {
-                    ["textDocument/publishDiagnostics"] = withFilteredDiagnostics(
-                        {
-                            keep = function(d)
-                                -- Ignore suggestion to convert to ES modules
-                                if d.code == 80001 then
-                                    return false
-                                end
-                                return true
-                            end
-                        }),
-                },
+                before_init = function(_, config)
+                    local codesettings = require('codesettings')
+                    codesettings.with_local_settings(config.name, config)
+                end,
             })
+
+            config("vtsls", {})
 
             config("templ", {})
 
@@ -936,24 +950,26 @@ local plugins =
                 })
             end
 
-            config("tailwindcss",
-            {
-                filetypes =
-                {
-                    "templ",
-                    "astro",
-                    "javascript",
-                    "typescript",
-                    "react",
-                },
-                init_options =
-                {
-                    userLanguages =
-                    {
-                        templ = "html"
-                    }
-                },
-            })
+            -- config("tailwindcss",
+            -- {
+            --     filetypes =
+            --     {
+            --         "templ",
+            --         "astro",
+            --         "javascript",
+            --         "typescript",
+            --         "react",
+            --     },
+            --     init_options =
+            --     {
+            --         userLanguages =
+            --         {
+            --             templ = "html"
+            --         }
+            --     },
+            -- })
+
+            config("eslint", {})
 
             local function noCompletionOnSpaceForTailwind()
                 for _, client in pairs((vim.lsp.get_clients {})) do
@@ -999,10 +1015,17 @@ local plugins =
                         action = vim.lsp.buf.signature_help,
                         opts = opts,
                     })
+                    helper.altMacBinding(
+                    {
+                        mode = 'i',
+                        key = 'i',
+                        action = vim.lsp.buf.signature_help,
+                        opts = opts,
+                    })
 
                     setKey('n', '<F2>', vim.lsp.buf.rename, "Rename symbol")
                     setKey({ 'n', 'v' }, '<C-.>', vim.lsp.buf.code_action, "LSP code action")
-                    setKey({ 'n', 'v' }, '<space>ref', function()
+                    setKey({ 'n', 'v' }, '<leader>r', function()
                         vim.lsp.buf.format({
                             async = true,
                         })
@@ -1159,17 +1182,16 @@ local plugins =
                 priority_weight = 2,
                 comparators =
                 {
-                    cmp.config.compare.locality,
-                    cmp.config.compare.recently_used,
-                    cmp.config.compare.kind,
-                    cmp.config.compare.exact,
-                    cmp.config.compare.order,
-
                     cmp.config.compare.offset,
-                    -- cmp.config.compare.scopes,
+                    cmp.config.compare.exact,
                     cmp.config.compare.score,
+                    -- cmp.config.compare.scopes,
+                    cmp.config.compare.kind,
                     cmp.config.compare.sort_text,
                     cmp.config.compare.length,
+                    cmp.config.compare.order,
+                    cmp.config.compare.locality,
+                    cmp.config.compare.recently_used,
                 },
             }
 
@@ -1968,6 +1990,27 @@ table.insert(plugins,
     config = function()
         require("roslyn").setup({})
     end,
+})
+
+table.insert(plugins,
+{
+    'mrjones2014/codesettings.nvim',
+    lazy = false,
+    opts = 
+    {
+        config_file_paths = { 
+            '.vscode/settings.json',
+            'codesettings.json',
+            'lspsettings.json',
+        },
+        jsonc_filetype = true,
+        jsonls_integration = true,
+        live_reload = true,
+        loader_extensions = { 'codesettings.extensions.vscode' },
+        lua_ls_integration = true,
+        merge_lists = 'append',
+        nls = true,
+    },
 })
 
 require("lazy").setup(plugins);

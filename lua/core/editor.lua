@@ -88,9 +88,30 @@ vim.api.nvim_create_autocmd({'BufRead', 'BufNewFile'},
 vim.api.nvim_create_autocmd("ColorScheme",
 {
     callback = function()
-        vim.cmd("hi MatchParen guibg=#555599 guisp=Blue")
-        vim.cmd("hi TreesitterContext guibg=#202020")
-        vim.cmd("hi SpellBad guifg=#EE5555")
+        --- @param name string Highlight group name, e.g. "ErrorMsg"
+        --- @param val vim.api.keyset.highlight Highlight definition map, accepts the following keys:
+        local function highlight(name, val)
+            local globalHighlight = 0
+            vim.api.nvim_set_hl(globalHighlight, name, val)
+        end
+        highlight("MatchParen", { bg = "#555599", sp = "Blue" })
+        highlight("TreesitterContext", { bg = "#202020" })
+        highlight("SpellBad", { fg = "#EE5555" })
+        highlight("DiagnosticUnderlineError", { underline = true, sp = "#EE5555" })
+        highlight("DiagnosticError", { fg = "#EE5555" })
+
+        for _, type in ipairs({ "@lsp.type.delegate.cs", "@lsp.type.generic.cs", "@lsp.type.record.cs" }) do
+            highlight(type, { fg = "#1f8730" });
+        end
+        for _, type in ipairs({ "@lsp.type.recordStruct.cs", "@lsp.type.struct.cs" }) do
+            highlight(type, { fg = "#AABB30" });
+        end
+        for _, type in ipairs({ "@lsp.typemod.field.static.cs" }) do
+            highlight(type, { fg = "#3399FF" });
+        end
+        for _, type in ipairs({ "@lsp.type.extensionMethod.cs" }) do
+            highlight(type, { fg = "#44BC44" });
+        end
     end
 })
 
