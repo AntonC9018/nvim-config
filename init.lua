@@ -5,7 +5,7 @@ local helper = require("core.helper")
 
 -- Default commands conflict with other stuff
 do
-    local lsp_defaults = { "gri", "grr", "gre", "gra" }
+    local lsp_defaults = { "gri", "grr", "gre", "gra", "grt", "grT", "grf", "grF" }
     for _, key in ipairs(lsp_defaults) do
         pcall(vim.keymap.del, "n", key)
     end
@@ -430,8 +430,8 @@ local plugins =
 
             do
                 local t = { desc = "Show workspace symbols" }
-                vim.keymap.set("n", "<leader><leader>", builtin.lsp_workspace_symbols, t)
-                vim.keymap.set("n", "ws", builtin.lsp_workspace_symbols, t)
+                vim.keymap.set("n", "<leader><leader>", builtin.lsp_dynamic_workspace_symbols, t)
+                vim.keymap.set("n", "ws", builtin.lsp_dynamic_workspace_symbols, t)
             end
 
             vim.keymap.set("n", "wh", builtin.help_tags, {
@@ -1033,15 +1033,42 @@ local plugins =
                 end,
             })
 
+            -- vim.api.nvim_create_autocmd({ "DiagnosticChanged", "BufWritePost" }, {
+            --     callback = function()
+            --         vim.diagnostic.setqflist({ open = false })
+            --     end,
+            -- })
+            -- local function cnext_wrap()
+            --     local ok = pcall(vim.cmd.cnext)
+            --     if not ok then
+            --         vim.cmd.cfirst()
+            --     end
+            -- end
+
+            -- local function cprev_wrap()
+            --     local ok = pcall(vim.cmd.cprev)
+            --     if not ok then
+            --         vim.cmd.clast()
+            --     end
+            -- end
+
+            -- vim.keymap.set("n", "ge", cnext_wrap, {
+            --     desc = "Next workspace diagnostic",
+            -- })
+            -- vim.keymap.set("n", "gE", cprev_wrap, {
+            --     desc = "Previous workspace diagnostic",
+            -- })
+            -- end
             vim.keymap.set("n", "ge", function()
                 vim.diagnostic.goto_next()
             end, {
-                desc = "Go to next error",
+                desc = "Go to next diagnostic",
             })
             vim.keymap.set("n", "gE", function()
                 vim.diagnostic.goto_prev()
+                -- vim.diagnostic.jump({ count = -1, float = true })
             end, {
-                desc = "Go to previous error",
+                desc = "Go to previous diagnostic",
             })
 
             require("mason").setup({
@@ -1988,7 +2015,18 @@ table.insert(plugins,
         "neovim/nvim-lspconfig",
     },
     config = function()
-        require("roslyn").setup({})
+        require("roslyn").setup({
+            config = {
+                settings = {
+                    ["csharp|completion"] = {
+                        dotnet_show_completion_items_from_unimported_namespaces = true,
+                    },
+                    ["csharp|symbol_search"] = {
+                        dotnet_search_reference_assemblies = true,
+                    },
+                },
+            },
+        })
     end,
 })
 
@@ -2012,5 +2050,11 @@ table.insert(plugins,
         nls = true,
     },
 })
+
+table.insert(plugins, 
+{
+    "stevearc/dressing.nvim",
+    opts = {},
+});
 
 require("lazy").setup(plugins);
