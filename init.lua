@@ -1059,14 +1059,34 @@ local plugins =
             --     desc = "Previous workspace diagnostic",
             -- })
             -- end
+            local diagnosticNavigationSeverity =
+            {
+                vim.diagnostic.severity.ERROR,
+                vim.diagnostic.severity.WARN,
+            }
+            local function openDiagnosticFloat(_, bufnr)
+                vim.diagnostic.open_float({
+                    bufnr = bufnr,
+                    scope = "cursor",
+                    focus = false,
+                })
+            end
+
             vim.keymap.set("n", "ge", function()
-                vim.diagnostic.goto_next()
+                vim.diagnostic.jump({
+                    count = 1,
+                    severity = diagnosticNavigationSeverity,
+                    on_jump = openDiagnosticFloat,
+                })
             end, {
                 desc = "Go to next diagnostic",
             })
             vim.keymap.set("n", "gE", function()
-                vim.diagnostic.goto_prev()
-                -- vim.diagnostic.jump({ count = -1, float = true })
+                vim.diagnostic.jump({
+                    count = -1,
+                    severity = diagnosticNavigationSeverity,
+                    on_jump = openDiagnosticFloat,
+                })
             end, {
                 desc = "Go to previous diagnostic",
             })
@@ -2024,6 +2044,10 @@ table.insert(plugins,
                     ["csharp|symbol_search"] = {
                         dotnet_search_reference_assemblies = true,
                     },
+                    ["csharp|background_analysis"] = {
+                        dotnet_compiler_diagnostics_scope = "fullSolution",
+                        dotnet_analyzer_diagnostics_scope = "fullSolution",
+                    },
                 },
             },
         })
@@ -2055,6 +2079,26 @@ table.insert(plugins,
 {
     "stevearc/dressing.nvim",
     opts = {},
+});
+table.insert(plugins,
+{
+    "folke/noice.nvim",
+    opts = {
+        lsp = {
+            override = {
+                ["vim.lsp.util.convert_input_to_markdown_lines"] = true,
+                ["vim.lsp.util.stylize_markdown"] = true,
+                ["cmp.entry.get_documentation"] = true,
+            },
+        },
+        presets = {
+            bottom_search = true,
+            command_palette = false,
+            long_message_to_split = true,
+            inc_rename = false,
+            lsp_doc_border = false,
+        },
+    },
 });
 
 require("lazy").setup(plugins);
