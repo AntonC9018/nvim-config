@@ -1064,29 +1064,178 @@ local plugins =
                 vim.diagnostic.severity.ERROR,
                 vim.diagnostic.severity.WARN,
             }
-            local function openDiagnosticFloat(_, bufnr)
-                vim.diagnostic.open_float({
-                    bufnr = bufnr,
-                    scope = "cursor",
-                    focus = false,
+            local diagnosticNavigationSeverityLookup = {}
+            for _, severity in ipairs(diagnosticNavigationSeverity) do
+                diagnosticNavigationSeverityLookup[severity] = true
+            end
+            local diagnosticNavigationCache = {}
+            local function isDiagnosticNavigationSeverity(diagnostic)
+                return diagnosticNavigationSeverityLookup[diagnostic.severity] == true
+            end
+            local function diagnosticBufferKey(bufnr)
+                local name = vim.api.nvim_buf_get_name(bufnr)
+                if name ~= "" then
+                    return vim.fn.fnamemodify(name, ":p")
+                end
+                return string.format("\255%d", bufnr)
+            end
+            local function setDiagnosticNavigationCache(bufnr)
+                if not vim.api.nvim_buf_is_valid(bufnr) then
+                    diagnosticNavigationCache[bufnr] = nil
+                    return
+                end
+
+                local diagnostics = vim.diagnostic.get(bufnr, {
+                    severity = diagnosticNavigationSeverity,
                 })
+                if #diagnostics > 0 or bufnr == vim.api.nvim_get_current_buf() then
+                    diagnosticNavigationCache[bufnr] = diagnostics
+                end
+            end
+            local function refreshDiagnosticNavigationCache()
+                for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+                    if vim.api.nvim_buf_is_valid(bufnr) then
+                        local diagnostics = vim.diagnostic.get(bufnr, {
+                            severity = diagnosticNavigationSeverity,
+                        })
+                        if #diagnostics > 0 then
+                            diagnosticNavigationCache[bufnr] = diagnostics
+                        end
+                    else
+                        diagnosticNavigationCache[bufnr] = nil
+                    end
+                end
+                setDiagnosticNavigationCache(vim.api.nvim_get_current_buf())
+            end
+            local function compareDiagnosticPosition(a, b)
+                if a.path ~= b.path then
+                    return a.path < b.path and -1 or 1
+                end
+                if a.lnum ~= b.lnum then
+                    return a.lnum < b.lnum and -1 or 1
+                end
+                if a.col ~= b.col then
+                    return a.col < b.col and -1 or 1
+                end
+                if a.bufnr ~= b.bufnr then
+                    return a.bufnr < b.bufnr and -1 or 1
+                end
+                return 0
+            end
+            local function sortedWorkspaceDiagnostics()
+                refreshDiagnosticNavigationCache()
+
+                local result = {}
+                for bufnr, diagnostics in pairs(diagnosticNavigationCache) do
+                    if vim.api.nvim_buf_is_valid(bufnr) then
+                        for _, diagnostic in ipairs(diagnostics) do
+                            table.insert(result, {
+                                bufnr = bufnr,
+                                col = diagnostic.col or 0,
+                                diagnostic = diagnostic,
+                                lnum = diagnostic.lnum or 0,
+                                path = diagnosticBufferKey(bufnr),
+                            })
+                        end
+                    else
+                        diagnosticNavigationCache[bufnr] = nil
+                    end
+                end
+
+                table.sort(result, function(a, b)
+                    local positionComparison = compareDiagnosticPosition(a, b)
+                    if positionComparison ~= 0 then
+                        return positionComparison < 0
+                    end
+                    if a.diagnostic.severity ~= b.diagnostic.severity then
+                        return a.diagnostic.severity < b.diagnostic.severity
+                    end
+                    return (a.diagnostic.message or "") < (b.diagnostic.message or "")
+                end)
+                return result
+            end
+            local diagnosticNavigationGroup =
+                vim.api.nvim_create_augroup("DiagnosticNavigation", { clear = true })
+            vim.api.nvim_create_autocmd("DiagnosticChanged", {
+                group = diagnosticNavigationGroup,
+                callback = function(args)
+                    local bufnr = args.buf
+                    local diagnostics = {}
+                    for _, diagnostic in ipairs((args.data or {}).diagnostics or {}) do
+                        if isDiagnosticNavigationSeverity(diagnostic) then
+                            table.insert(diagnostics, diagnostic)
+                        end
+                    end
+                    if #diagnostics > 0 then
+                        diagnosticNavigationCache[bufnr] = diagnostics
+                        return
+                    end
+
+                    vim.schedule(function()
+                        setDiagnosticNavigationCache(bufnr)
+                    end)
+                end,
+            })
+            local function jumpToWorkspaceDiagnostic(direction)
+                local diagnostics = sortedWorkspaceDiagnostics()
+                if #diagnostics == 0 then
+                    vim.api.nvim_echo({
+                        { "No error or warning diagnostics to move to", "WarningMsg" },
+                    }, true, {})
+                    return
+                end
+
+                local cursor = vim.api.nvim_win_get_cursor(0)
+                local currentBufnr = vim.api.nvim_get_current_buf()
+                local currentPosition = {
+                    bufnr = currentBufnr,
+                    col = cursor[2],
+                    lnum = cursor[1] - 1,
+                    path = diagnosticBufferKey(currentBufnr),
+                }
+                local target
+                if direction > 0 then
+                    for _, diagnostic in ipairs(diagnostics) do
+                        if compareDiagnosticPosition(diagnostic, currentPosition) > 0 then
+                            target = diagnostic
+                            break
+                        end
+                    end
+                    target = target or diagnostics[1]
+                else
+                    for i = #diagnostics, 1, -1 do
+                        local diagnostic = diagnostics[i]
+                        if compareDiagnosticPosition(diagnostic, currentPosition) < 0 then
+                            target = diagnostic
+                            break
+                        end
+                    end
+                    target = target or diagnostics[#diagnostics]
+                end
+
+                vim.cmd("normal! m'")
+                vim.api.nvim_win_set_buf(0, target.bufnr)
+
+                local lineCount = vim.api.nvim_buf_line_count(target.bufnr)
+                local lnum = math.min(target.lnum, math.max(lineCount - 1, 0))
+                vim.api.nvim_win_set_cursor(0, { lnum + 1, target.col })
+                vim.cmd("normal! zv")
+                vim.schedule(function()
+                    vim.diagnostic.open_float({
+                        bufnr = target.bufnr,
+                        scope = "cursor",
+                        focus = false,
+                    })
+                end)
             end
 
             vim.keymap.set("n", "ge", function()
-                vim.diagnostic.jump({
-                    count = 1,
-                    severity = diagnosticNavigationSeverity,
-                    on_jump = openDiagnosticFloat,
-                })
+                jumpToWorkspaceDiagnostic(1)
             end, {
                 desc = "Go to next diagnostic",
             })
             vim.keymap.set("n", "gE", function()
-                vim.diagnostic.jump({
-                    count = -1,
-                    severity = diagnosticNavigationSeverity,
-                    on_jump = openDiagnosticFloat,
-                })
+                jumpToWorkspaceDiagnostic(-1)
             end, {
                 desc = "Go to previous diagnostic",
             })

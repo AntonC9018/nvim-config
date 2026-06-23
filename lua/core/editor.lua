@@ -31,6 +31,15 @@ vim.o.cmdheight = 2
 
 vim.o.undofile = true
 
+vim.opt.formatoptions:remove("o")
+vim.api.nvim_create_autocmd("FileType",
+{
+    group = vim.api.nvim_create_augroup("no_comment_continuation", { clear = true }),
+    callback = function(args)
+        vim.bo[args.buf].formatoptions = vim.bo[args.buf].formatoptions:gsub("o", "")
+    end,
+})
+
 -- https://github.com/nguynkhn/dotfiles/blob/3b4c9b908d760d942c0ad29b68551604fe2a28ff/nvim/lua/autocmds.lua#L13-L22
 vim.api.nvim_create_autocmd("BufWritePre",
 {
@@ -114,4 +123,3 @@ vim.api.nvim_create_autocmd("ColorScheme",
         end
     end
 })
-
