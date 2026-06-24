@@ -773,9 +773,15 @@ local plugins =
             "williamboman/mason.nvim",
             "williamboman/mason-lspconfig.nvim",
             "mrjones2014/codesettings.nvim",
+            "hrsh7th/cmp-nvim-lsp",
             -- "folke/neodev.nvim",
         },
         config = function(_)
+            local defaultCapabilities = vim.tbl_deep_extend(
+                "force",
+                vim.lsp.protocol.make_client_capabilities(),
+                require("cmp_nvim_lsp").default_capabilities())
+
             local function filterList(list, shouldKeepFunc)
                 for i = #list, 1, -1 do
                     local d = list[i]
@@ -813,6 +819,12 @@ local plugins =
             local allConfigOptions = {}
             local allConfigNames = {}
             local function config(name, opts)
+                opts = opts or {}
+                opts.capabilities = vim.tbl_deep_extend(
+                    "force",
+                    {},
+                    defaultCapabilities,
+                    opts.capabilities or {})
                 table.insert(allConfigOptions, opts)
                 table.insert(allConfigNames, name)
             end
@@ -980,11 +992,35 @@ local plugins =
                 end
             end
 
+            local function appendCompletionTriggerCharacters(client, characters)
+                local completionProvider = client.server_capabilities.completionProvider
+                if not completionProvider then
+                    return
+                end
+
+                completionProvider.triggerCharacters = completionProvider.triggerCharacters or {}
+                local existing = {}
+                for _, character in ipairs(completionProvider.triggerCharacters) do
+                    existing[character] = true
+                end
+
+                for _, character in ipairs(characters) do
+                    if not existing[character] then
+                        table.insert(completionProvider.triggerCharacters, character)
+                        existing[character] = true
+                    end
+                end
+            end
+
             vim.api.nvim_create_autocmd('LspAttach',
             {
                 group = vim.api.nvim_create_augroup('UserLspConfig', {}),
                 callback = function(ev)
                     noCompletionOnSpaceForTailwind()
+                    local client = vim.lsp.get_client_by_id(ev.data.client_id)
+                    if client and client.name == "roslyn" then
+                        appendCompletionTriggerCharacters(client, { "." })
+                    end
                     ---
                     ---@diagnostic disable-next-line: inject-field
                     vim.bo[ev.buf].omnifunc = 'v:lua.vim.lsp.omnifunc'
@@ -1322,6 +1358,8 @@ local plugins =
         },
         config = function(_)
             local cmp = require('cmp')
+            local cmpCompare = cmp.config.compare
+            local lspCompletionItemKind = cmp.lsp.CompletionItemKind
 
             local defaultSources = cmp.config.sources(
             {
@@ -1336,6 +1374,23 @@ local plugins =
                     end,
                 },
                 { name = 'buffer' },
+            })
+
+            local csharpSources = cmp.config.sources(
+            {
+                {
+                    name = "nvim_lsp",
+                    keyword_length = 1,
+                    entry_filter = function(entry)
+                        return entry:get_kind() ~= lspCompletionItemKind.Snippet
+                    end,
+                },
+            },
+            {
+                {
+                    name = "buffer",
+                    keyword_length = 2,
+                },
             })
 
             local defaultMapping =
@@ -1378,16 +1433,33 @@ local plugins =
                 priority_weight = 2,
                 comparators =
                 {
-                    cmp.config.compare.offset,
-                    cmp.config.compare.exact,
-                    cmp.config.compare.score,
-                    -- cmp.config.compare.scopes,
-                    cmp.config.compare.kind,
-                    cmp.config.compare.sort_text,
-                    cmp.config.compare.length,
-                    cmp.config.compare.order,
-                    cmp.config.compare.locality,
-                    cmp.config.compare.recently_used,
+                    cmpCompare.offset,
+                    cmpCompare.exact,
+                    cmpCompare.score,
+                    -- cmpCompare.scopes,
+                    cmpCompare.kind,
+                    cmpCompare.sort_text,
+                    cmpCompare.length,
+                    cmpCompare.order,
+                    cmpCompare.locality,
+                    cmpCompare.recently_used,
+                },
+            }
+
+            local csharpSorting =
+            {
+                priority_weight = 2,
+                comparators =
+                {
+                    cmpCompare.offset,
+                    cmpCompare.exact,
+                    cmpCompare.sort_text,
+                    cmpCompare.score,
+                    cmpCompare.locality,
+                    cmpCompare.recently_used,
+                    cmpCompare.kind,
+                    cmpCompare.length,
+                    cmpCompare.order,
                 },
             }
 
@@ -1461,7 +1533,14 @@ local plugins =
                     disallow_fullfuzzy_matching = false,
                     disallow_partial_matching = false,
                     disallow_prefix_unmatching = false,
+                    disallow_symbol_nonprefix_matching = false,
                 },
+            })
+
+            cmp.setup.filetype('cs',
+            {
+                sources = csharpSources,
+                sorting = csharpSorting,
             })
 
             ---@diagnostic disable-next-line: undefined-field
@@ -2182,24 +2261,34 @@ table.insert(plugins,
     {
         "mason.nvim",
         "neovim/nvim-lspconfig",
+        "hrsh7th/cmp-nvim-lsp",
     },
-    config = function()
-        require("roslyn").setup({
-            config = {
-                settings = {
-                    ["csharp|completion"] = {
-                        dotnet_show_completion_items_from_unimported_namespaces = true,
-                    },
-                    ["csharp|symbol_search"] = {
-                        dotnet_search_reference_assemblies = true,
-                    },
-                    ["csharp|background_analysis"] = {
-                        dotnet_compiler_diagnostics_scope = "fullSolution",
-                        dotnet_analyzer_diagnostics_scope = "fullSolution",
-                    },
+    init = function()
+        local capabilities = vim.tbl_deep_extend(
+            "force",
+            vim.lsp.protocol.make_client_capabilities(),
+            require("cmp_nvim_lsp").default_capabilities())
+
+        vim.lsp.config("roslyn",
+        {
+            capabilities = capabilities,
+            settings = {
+                ["csharp|completion"] = {
+                    dotnet_show_completion_items_from_unimported_namespaces = true,
+                    dotnet_show_name_completion_suggestions = true,
+                },
+                ["csharp|symbol_search"] = {
+                    dotnet_search_reference_assemblies = true,
+                },
+                ["csharp|background_analysis"] = {
+                    dotnet_compiler_diagnostics_scope = "fullSolution",
+                    dotnet_analyzer_diagnostics_scope = "fullSolution",
                 },
             },
         })
+    end,
+    config = function()
+        require("roslyn").setup()
     end,
 })
 
