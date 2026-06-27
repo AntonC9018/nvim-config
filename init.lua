@@ -1410,7 +1410,6 @@ local plugins =
                     end
 
                     cmp.confirm({ select = true })
-                    cmp.close()
                 end,
                 ["<CR>"] = function(fallback)
                     if not cmp.visible() then
@@ -1424,7 +1423,6 @@ local plugins =
                     end
 
                     cmp.confirm({ select = true })
-                    cmp.close()
                 end,
             }
 
@@ -1541,6 +1539,11 @@ local plugins =
             {
                 sources = csharpSources,
                 sorting = csharpSorting,
+                performance = {
+                    -- Roslyn often resolves completion items on confirm to add
+                    -- imports or other follow-up edits.
+                    confirm_resolve_timeout = 500,
+                },
             })
 
             ---@diagnostic disable-next-line: undefined-field
