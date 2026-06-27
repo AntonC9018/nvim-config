@@ -1012,6 +1012,172 @@ local plugins =
                 end
             end
 
+            local function applyRoslynCodeAction(client, action, bufnr, ctx)
+                if action.disabled then
+                    vim.notify(action.disabled.reason, vim.log.levels.ERROR)
+                    return
+                end
+
+                ctx = ctx or {}
+                ctx.bufnr = ctx.bufnr or bufnr
+                ctx.client_id = ctx.client_id or client.id
+
+                if action.data and not action.edit and not action.command and client:supports_method("codeAction/resolve") then
+                    client:request("codeAction/resolve", action, function(err, resolved)
+                        if err then
+                            vim.notify(err.message or tostring(err), vim.log.levels.ERROR)
+                            return
+                        end
+
+                        if resolved then
+                            applyRoslynCodeAction(client, resolved, bufnr, ctx)
+                        end
+                    end, bufnr)
+                    return
+                end
+
+                if action.edit then
+                    vim.lsp.util.apply_workspace_edit(action.edit, client.offset_encoding)
+                end
+
+                if not action.command then
+                    return
+                end
+
+                if type(action.command) == "table" then
+                    client:exec_cmd(action.command, ctx)
+                else
+                    client:exec_cmd(action, ctx)
+                end
+            end
+
+            local function roslynNestedActions(action)
+                if type(action) ~= "table" then
+                    return nil
+                end
+
+                if type(action.NestedCodeActions) == "table" then
+                    return action.NestedCodeActions
+                end
+
+                local function nestedFromArguments(arguments)
+                    local firstArgument = arguments and arguments[1]
+                    if type(firstArgument) == "table" and type(firstArgument.NestedCodeActions) == "table" then
+                        return firstArgument.NestedCodeActions
+                    end
+                end
+
+                local nested = nestedFromArguments(action.arguments)
+                if nested then
+                    return nested
+                end
+
+                if type(action.command) == "table" then
+                    return nestedFromArguments(action.command.arguments)
+                end
+            end
+
+            local function flattenRoslynCodeActions(actions)
+                local result = {}
+
+                local function append(action)
+                    local nested = roslynNestedActions(action)
+                    if nested and not vim.tbl_isempty(nested) then
+                        for _, nestedAction in ipairs(nested) do
+                            append(nestedAction)
+                        end
+                        return
+                    end
+
+                    table.insert(result, action)
+                end
+
+                for _, action in ipairs(actions or {}) do
+                    append(action)
+                end
+
+                return result
+            end
+
+            local function roslynActionHasTitle(action, title)
+                if action.title == title then
+                    return true
+                end
+
+                if type(action.command) == "table" and action.command.title == title then
+                    return true
+                end
+
+                local codeActionPath = action.data and action.data.CodeActionPath
+                if type(codeActionPath) ~= "table" then
+                    return false
+                end
+
+                for _, pathTitle in ipairs(codeActionPath) do
+                    if pathTitle == title then
+                        return true
+                    end
+                end
+
+                return false
+            end
+
+            local function findRoslynCodeAction(actions, titles)
+                for _, title in ipairs(titles) do
+                    for _, action in ipairs(actions) do
+                        if not action.disabled and roslynActionHasTitle(action, title) then
+                            return action
+                        end
+                    end
+                end
+            end
+
+            local function toggleRoslynParameterIndentation()
+                local bufnr = vim.api.nvim_get_current_buf()
+                local client = vim.iter(vim.lsp.get_clients({
+                    bufnr = bufnr,
+                    method = "textDocument/codeAction",
+                })):find(function(it)
+                    return it.name == "roslyn"
+                end)
+
+                if not client then
+                    vim.notify("No Roslyn client attached", vim.log.levels.WARN)
+                    return
+                end
+
+                local params = vim.lsp.util.make_range_params(vim.api.nvim_get_current_win(), client.offset_encoding)
+                params.context = {
+                    diagnostics = {},
+                    triggerKind = vim.lsp.protocol.CodeActionTriggerKind.Invoked,
+                }
+
+                client:request("textDocument/codeAction", params, function(err, actions, ctx)
+                    if err then
+                        vim.notify(err.message or tostring(err), vim.log.levels.ERROR)
+                        return
+                    end
+
+                    local flatActions = flattenRoslynCodeActions(actions)
+                    local action = findRoslynCodeAction(flatActions, {
+                        "Indent all parameters",
+                        "Indent all arguments",
+                    }) or findRoslynCodeAction(flatActions, {
+                        "Unwrap all parameters",
+                        "Unwrap all arguments",
+                        "Unwrap parameter list",
+                        "Unwrap argument list",
+                    })
+
+                    if not action then
+                        vim.notify("No Roslyn parameter indent/unwrap code action available", vim.log.levels.INFO)
+                        return
+                    end
+
+                    applyRoslynCodeAction(client, action, bufnr, ctx)
+                end, bufnr)
+            end
+
             vim.api.nvim_create_autocmd('LspAttach',
             {
                 group = vim.api.nvim_create_augroup('UserLspConfig', {}),
@@ -1020,6 +1186,10 @@ local plugins =
                     local client = vim.lsp.get_client_by_id(ev.data.client_id)
                     if client and client.name == "roslyn" then
                         appendCompletionTriggerCharacters(client, { "." })
+                        vim.keymap.set("n", "<C-,>", toggleRoslynParameterIndentation, {
+                            buffer = ev.buf,
+                            desc = "Toggle Roslyn parameter indentation",
+                        })
                     end
                     ---
                     ---@diagnostic disable-next-line: inject-field
