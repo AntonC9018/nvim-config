@@ -32,10 +32,28 @@ helper.altMacBinding({ mode = { 'c' }, key = "e", action = "<S-Right>" })
 do
     local systemClipboardRegisterReference = '"' .. helper.systemClipboardRegister
 
+    local function sanitizeSystemClipboardRegister()
+        local registerValue = vim.fn.getreg(helper.systemClipboardRegister)
+        local sanitizedRegisterValue = registerValue:gsub("\r\n", "\n"):gsub("\r", "\n")
+        if sanitizedRegisterValue == registerValue then
+            return
+        end
+
+        vim.fn.setreg(helper.systemClipboardRegister, sanitizedRegisterValue, vim.fn.getregtype(helper.systemClipboardRegister))
+    end
+
+    local function systemClipboardAction(action)
+        sanitizeSystemClipboardRegister()
+        return systemClipboardRegisterReference .. action
+    end
+
     local function mapSystemRegisterPaste(from, action)
-        local mapping = systemClipboardRegisterReference .. action
-        vim.keymap.set("n", from, mapping)
-        vim.keymap.set("v", from, mapping .. 'gv')
+        vim.keymap.set("n", from, function()
+            return systemClipboardAction(action)
+        end, { expr = true })
+        vim.keymap.set("v", from, function()
+            return systemClipboardAction(action .. 'gv')
+        end, { expr = true })
     end
     local function mapSystemRegisterCopy(from, action)
         vim.keymap.set("n", from, 'V' .. systemClipboardRegisterReference .. action)
@@ -47,8 +65,11 @@ do
     mapSystemRegisterPaste("<leader>p", "p")
     mapSystemRegisterPaste("<leader>P", "P")
 
-    vim.keymap.set({"n", "v"}, "<leader>gr", systemClipboardRegisterReference .. "gr",
+    vim.keymap.set({"n", "v"}, "<leader>gr", function()
+        return systemClipboardAction("gr")
+    end,
     {
+        expr = true,
         remap = true,
     });
 
