@@ -1530,6 +1530,9 @@ local plugins =
             local cmp = require('cmp')
             local cmpCompare = cmp.config.compare
             local lspCompletionItemKind = cmp.lsp.CompletionItemKind
+            local csharpExpectedCompletion = require("core.csharp_expected_completion")
+
+            cmp.register_source("roslyn_expected_arg", csharpExpectedCompletion.new())
 
             local defaultSources = cmp.config.sources(
             {
@@ -1548,6 +1551,11 @@ local plugins =
 
             local csharpSources = cmp.config.sources(
             {
+                {
+                    name = "roslyn_expected_arg",
+                    priority = 2000,
+                    keyword_length = 0,
+                },
                 {
                     name = "nvim_lsp",
                     keyword_length = 1,
