@@ -1,7 +1,14 @@
 local M = {}
 
 local COMPLETION_KIND = {
+    Method = 2,
+    Function = 3,
+    Constructor = 4,
+    Field = 5,
+    Variable = 6,
+    Property = 10,
     EnumMember = 20,
+    Constant = 21,
 }
 
 local SYMBOL_KIND = {
@@ -13,6 +20,47 @@ local SYMBOL_KIND = {
 local MANUAL_TRIGGER = 1
 local SIGNATURE_HELP_INVOKED = 1
 local TIMEOUT_MS = 5000
+local INSERT_TEXT_FORMAT_SNIPPET = 2
+
+local typeAliases = {
+    Boolean = "bool",
+    Byte = "byte",
+    Char = "char",
+    Decimal = "decimal",
+    Double = "double",
+    Int16 = "short",
+    Int32 = "int",
+    Int64 = "long",
+    Object = "object",
+    SByte = "sbyte",
+    Single = "float",
+    String = "string",
+    UInt16 = "ushort",
+    UInt32 = "uint",
+    UInt64 = "ulong",
+}
+
+local builtinTypeNames = {
+    ["bool"] = true,
+    ["byte"] = true,
+    ["char"] = true,
+    ["decimal"] = true,
+    ["double"] = true,
+    ["dynamic"] = true,
+    ["float"] = true,
+    ["int"] = true,
+    ["long"] = true,
+    ["nint"] = true,
+    ["nuint"] = true,
+    ["object"] = true,
+    ["sbyte"] = true,
+    ["short"] = true,
+    ["string"] = true,
+    ["uint"] = true,
+    ["ulong"] = true,
+    ["ushort"] = true,
+    ["void"] = true,
+}
 
 local function trim(value)
     local result = (value or ""):gsub("^%s+", ""):gsub("%s+$", "")
@@ -56,6 +104,10 @@ local function normalizeTypeName(typeName)
     typeName = typeName:gsub("^global::", "")
     typeName = typeName:gsub("%?$", "")
     typeName = typeName:gsub("%s+", " ")
+    typeName = typeName:gsub("^System%.([_%a][_%w]*)$", function(systemType)
+        return typeAliases[systemType] or ("System." .. systemType)
+    end)
+    typeName = typeAliases[typeName] or typeName
     return typeName
 end
 
@@ -105,6 +157,7 @@ end
 
 local function parseVariableDeclaration(line)
     line = line:gsub("//.*$", "")
+    line = line:gsub("^%s*const%s+", "")
 
     local typeName, name, initializer = line:match(
         "^%s*([_%a][_%w%.<>%[%]%?]*)%s+([_%a][_%w]*)%s*=%s*(.-)%s*;?%s*$")
@@ -127,6 +180,8 @@ local function parseVariableDeclaration(line)
     return name, normalizeTypeName(typeName)
 end
 
+local parameterTypesBeforeCursor
+
 local function localVariableTypesBeforeCursor(bufnr)
     local cursor = vim.api.nvim_win_get_cursor(0)
     local lines = vim.api.nvim_buf_get_lines(bufnr, 0, cursor[1], false)
@@ -136,7 +191,7 @@ local function localVariableTypesBeforeCursor(bufnr)
 
     lines[#lines] = lines[#lines]:sub(1, cursor[2])
 
-    local result = {}
+    local result = parameterTypesBeforeCursor and parameterTypesBeforeCursor(bufnr) or {}
     for _, line in ipairs(lines) do
         local name, typeName = parseVariableDeclaration(line)
         if name and typeName then
@@ -249,6 +304,84 @@ local function expectedTypeFromParameter(parameter)
     }
 end
 
+local function parameterNameAndType(parameter)
+    parameter = stripLeadingAttributes(trim(parameter:gsub("%s*=.*$", "")))
+    parameter = parameter:gsub("^this%s+", "")
+    parameter = parameter:gsub("^ref%s+", "")
+    parameter = parameter:gsub("^out%s+", "")
+    parameter = parameter:gsub("^in%s+", "")
+    parameter = parameter:gsub("^params%s+", "")
+    parameter = parameter:gsub("^scoped%s+", "")
+
+    local typeName, name = parameter:match("^(.-)%s+([_%a][_%w]*)$")
+    if not typeName or typeName == "" then
+        return nil, nil
+    end
+
+    return name, normalizeTypeName(typeName)
+end
+
+local declarationParameterListKeywords = {
+    ["catch"] = true,
+    ["checked"] = true,
+    ["fixed"] = true,
+    ["for"] = true,
+    ["foreach"] = true,
+    ["if"] = true,
+    ["lock"] = true,
+    ["switch"] = true,
+    ["unchecked"] = true,
+    ["using"] = true,
+    ["while"] = true,
+}
+
+local function addParameterTypesFromDeclaration(result, declaration)
+    declaration = declaration:gsub("//.*$", "")
+
+    local name, parameterList = declaration:match("([_%a][_%w]*)%s*%((.*)%)%s*[{=>]")
+    if not name or declarationParameterListKeywords[name] then
+        return
+    end
+
+    for _, parameter in ipairs(splitTopLevelParameters(parameterList)) do
+        local parameterName, typeName = parameterNameAndType(parameter)
+        if parameterName and typeName then
+            result[parameterName] = typeName
+        end
+    end
+end
+
+parameterTypesBeforeCursor = function(bufnr)
+    local cursor = vim.api.nvim_win_get_cursor(0)
+    local lines = vim.api.nvim_buf_get_lines(bufnr, 0, cursor[1], false)
+    if #lines == 0 then
+        return {}
+    end
+
+    lines[#lines] = lines[#lines]:sub(1, cursor[2])
+
+    local result = {}
+    local pending = nil
+    for _, line in ipairs(lines) do
+        local current = trim(line)
+        if pending then
+            pending = pending .. " " .. current
+            if current:find("[{=>]") then
+                addParameterTypesFromDeclaration(result, pending)
+                pending = nil
+            end
+        elseif current:find("%(") and not current:find(";") then
+            pending = current
+            if current:find("[{=>]") then
+                addParameterTypesFromDeclaration(result, pending)
+                pending = nil
+            end
+        end
+    end
+
+    return result
+end
+
 local function expectedTypeFromSignature(signatureHelp)
     if not signatureHelp or not signatureHelp.signatures then
         return nil
@@ -319,7 +452,38 @@ local function implementationName(location)
     return afterCursor:match("^%s*([_%a][_%w]*)")
 end
 
-local function implementationNames(self, client, bufnr, expectedType, callback)
+local function implementationSymbolQueries(expectedType)
+    local queries = { expectedType.shortName }
+    local interfaceQuery = expectedType.shortName:match("^I(%u.*)$")
+    if interfaceQuery then
+        table.insert(queries, interfaceQuery)
+    end
+
+    return queries
+end
+
+local function workspaceSymbols(client, bufnr, queries, callback)
+    local result = {}
+    local index = 1
+
+    local function nextQuery()
+        local query = queries[index]
+        if not query then
+            callback(result)
+            return
+        end
+
+        request(client, "workspace/symbol", { query = query }, bufnr, function(symbols)
+            vim.list_extend(result, symbols or {})
+            index = index + 1
+            nextQuery()
+        end)
+    end
+
+    nextQuery()
+end
+
+local function implementationInfo(self, client, bufnr, expectedType, callback)
     local cacheKey = table.concat({ client.id, expectedType.name }, ":")
     local cached = self.implementationCache[cacheKey]
     if cached then
@@ -327,11 +491,15 @@ local function implementationNames(self, client, bufnr, expectedType, callback)
         return
     end
 
-    request(client, "workspace/symbol", { query = expectedType.shortName }, bufnr, function(symbols)
-        local names = {}
+    workspaceSymbols(client, bufnr, implementationSymbolQueries(expectedType), function(symbols)
+        local info = {
+            expectedSymbolKind = nil,
+            implementations = {},
+        }
+
         for _, item in ipairs(symbols or {}) do
             if item.name ~= expectedType.shortName and item.kind == SYMBOL_KIND.Class then
-                names[item.name] = true
+                info.implementations[item.name] = true
             end
         end
 
@@ -340,12 +508,12 @@ local function implementationNames(self, client, bufnr, expectedType, callback)
                 and (item.kind == SYMBOL_KIND.Interface
                     or item.kind == SYMBOL_KIND.Class
                     or item.kind == SYMBOL_KIND.Enum)
-                and item.location
         end)
 
-        if next(names) or not symbol then
-            self.implementationCache[cacheKey] = names
-            callback(names)
+        info.expectedSymbolKind = symbol and symbol.kind or nil
+        if next(info.implementations) or not symbol or symbol.kind == SYMBOL_KIND.Enum or not symbol.location then
+            self.implementationCache[cacheKey] = info
+            callback(info)
             return
         end
 
@@ -356,12 +524,12 @@ local function implementationNames(self, client, bufnr, expectedType, callback)
             for _, location in ipairs(locations or {}) do
                 local name = implementationName(location)
                 if name then
-                    names[name] = true
+                    info.implementations[name] = true
                 end
             end
 
-            self.implementationCache[cacheKey] = names
-            callback(names)
+            self.implementationCache[cacheKey] = info
+            callback(info)
         end)
     end)
 end
@@ -382,8 +550,82 @@ local function isExpectedEnumMember(item, expectedType)
         and vim.startswith(item.label, expectedType.shortName .. ".")
 end
 
+local function stripDetailModifiers(detail)
+    local changed = true
+    while changed do
+        changed = false
+        detail = detail:gsub("^%s*const%s+", function()
+            changed = true
+            return ""
+        end)
+        detail = detail:gsub("^%s*static%s+", function()
+            changed = true
+            return ""
+        end)
+        detail = detail:gsub("^%s*readonly%s+", function()
+            changed = true
+            return ""
+        end)
+    end
+
+    return trim(detail)
+end
+
+local function detailTypeName(detail)
+    detail = stripDetailModifiers(trim(detail or ""))
+    if detail == "" then
+        return nil
+    end
+
+    local typeName = detail:match("^([_%a][_%w%.<>%[%]%?]*)%s+[_%a][_%w%.]*")
+    if typeName then
+        return normalizeTypeName(typeName)
+    end
+
+    return nil
+end
+
+local function itemDetailMatchesExpectedType(item, expectedType)
+    local detailType = detailTypeName(item.detail)
+    return isExactType(detailType, expectedType)
+end
+
+local function isTypedItemKind(kind)
+    return kind == COMPLETION_KIND.Constant
+        or kind == COMPLETION_KIND.Method
+        or kind == COMPLETION_KIND.Function
+        or kind == COMPLETION_KIND.Field
+        or kind == COMPLETION_KIND.Property
+        or kind == COMPLETION_KIND.Variable
+end
+
+local function isTypedStaticOrConstantItem(item, expectedType)
+    local kind = item.kind
+    if not isTypedItemKind(kind) then
+        return false
+    end
+
+    return itemDetailMatchesExpectedType(item, expectedType)
+end
+
+local function isExpectedTypeStaticMember(item, expectedType)
+    if not isTypedItemKind(item.kind) or type(item.label) ~= "string" then
+        return false
+    end
+
+    return vim.startswith(item.label, expectedType.shortName .. ".")
+end
+
 local function isCompatibleItem(item, expectedType, implementations, localVariables)
     if isExpectedEnumMember(item, expectedType) then
+        return true
+    end
+
+    if isExpectedTypeStaticMember(item, expectedType) then
+        return true
+    end
+
+    if isTypedStaticOrConstantItem(item, expectedType) then
         return true
     end
 
@@ -404,6 +646,61 @@ local function markExpectedItem(item)
     item.sortText = "0000_expected_" .. (item.sortText or item.label)
     item.dup = 0
     return item
+end
+
+local function addExpectedItem(result, seen, item)
+    if not item.label or seen[item.label] then
+        return
+    end
+
+    table.insert(result, markExpectedItem(item))
+    seen[item.label] = true
+end
+
+local function looksLikeInterfaceName(typeName)
+    return shortTypeName(typeName):match("^I%u") ~= nil
+end
+
+local function isConstructibleTypeName(typeName, info)
+    local shortName = shortTypeName(typeName)
+    if builtinTypeNames[shortName] then
+        return false
+    end
+
+    if info.expectedSymbolKind == SYMBOL_KIND.Interface
+        or info.expectedSymbolKind == SYMBOL_KIND.Enum
+        or (not info.expectedSymbolKind and looksLikeInterfaceName(typeName))
+    then
+        return false
+    end
+
+    return shortName:match("^[_%u]") ~= nil
+end
+
+local function newExpressionItem(typeName)
+    typeName = normalizeTypeName(typeName)
+    local label = "new " .. typeName .. "()"
+    return {
+        label = label,
+        kind = COMPLETION_KIND.Constructor,
+        sortText = "0001_new_" .. typeName,
+        filterText = "new " .. typeName,
+        insertText = "new " .. typeName .. "($0)",
+        insertTextFormat = INSERT_TEXT_FORMAT_SNIPPET,
+        detail = "Create " .. typeName,
+    }
+end
+
+local function addNewExpressionItems(result, seen, expectedType, info)
+    if isConstructibleTypeName(expectedType.name, info) then
+        addExpectedItem(result, seen, newExpressionItem(expectedType.name))
+    end
+
+    local implementationNames = vim.tbl_keys(info.implementations)
+    table.sort(implementationNames)
+    for _, implementationName in ipairs(implementationNames) do
+        addExpectedItem(result, seen, newExpressionItem(implementationName))
+    end
 end
 
 local function expectedEnumMembers(items, expectedType)
@@ -486,24 +783,25 @@ function source:complete(params, callback)
                     if not seen[item.label]
                         and isCompatibleItem(item, expectedType, {}, localVariables)
                     then
-                        table.insert(enumMembers, markExpectedItem(item))
-                        seen[item.label] = true
+                        addExpectedItem(enumMembers, seen, item)
                     end
                 end
                 finish(enumMembers)
                 return
             end
 
-            implementationNames(self, client, bufnr, expectedType, function(implementations)
+            implementationInfo(self, client, bufnr, expectedType, function(info)
                 local result = {}
                 local seen = {}
                 for _, item in ipairs(items) do
-                    if not seen[item.label] and isCompatibleItem(item, expectedType, implementations, localVariables) then
-                        table.insert(result, markExpectedItem(item))
-                        seen[item.label] = true
+                    if not seen[item.label]
+                        and isCompatibleItem(item, expectedType, info.implementations, localVariables)
+                    then
+                        addExpectedItem(result, seen, item)
                     end
                 end
 
+                addNewExpressionItems(result, seen, expectedType, info)
                 finish(result)
             end)
         end)
@@ -543,6 +841,52 @@ function M.new()
     return setmetatable({
         implementationCache = {},
     }, source)
+end
+
+function M.complete_argument_or_fallback(cmp, fallback)
+    if vim.bo.filetype ~= "cs" then
+        return false
+    end
+
+    local bufnr = vim.api.nvim_get_current_buf()
+    local win = vim.api.nvim_get_current_win()
+    local cursor = vim.api.nvim_win_get_cursor(win)
+    local client = findRoslynClient(bufnr, "textDocument/completion")
+    if not client then
+        return false
+    end
+
+    signatureHelp(client, bufnr, function(help)
+        if not vim.api.nvim_win_is_valid(win)
+            or vim.api.nvim_win_get_buf(win) ~= bufnr
+            or vim.api.nvim_get_mode().mode ~= "i"
+        then
+            return
+        end
+
+        local currentCursor = vim.api.nvim_win_get_cursor(win)
+        if currentCursor[1] ~= cursor[1] or currentCursor[2] ~= cursor[2] then
+            return
+        end
+
+        if expectedTypeFromSignature(help) then
+            cmp.complete({
+                config = {
+                    sources = cmp.config.sources({
+                        {
+                            name = "roslyn_expected_arg",
+                            keyword_length = 0,
+                        },
+                    }),
+                },
+            })
+            return
+        end
+
+        fallback()
+    end)
+
+    return true
 end
 
 return M

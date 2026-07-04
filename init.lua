@@ -1577,7 +1577,16 @@ local plugins =
                     if cmp.visible() then
                         cmp.abort()
                     end
-                    cmp.complete()
+
+                    local function completeNormally()
+                        cmp.complete()
+                    end
+
+                    if csharpExpectedCompletion.complete_argument_or_fallback(cmp, completeNormally) then
+                        return
+                    end
+
+                    completeNormally()
                 end,
                 ['<C-j>'] = cmp.mapping.select_next_item(),
                 ['<C-k>'] = cmp.mapping.select_prev_item(),
