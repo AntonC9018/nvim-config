@@ -833,9 +833,9 @@ local plugins =
                         gd                      = "jump_close",
                         P                       = "toggle_preview",
                         p                       = "preview",
+                        h                       = "fold_close",
+                        l                       = "fold_open",
                         L                       = "fold_toggle",
-                        k                       = "prev",
-                        j                       = "next",
                         [helper.controlSlash()] = "help",
                     },
                     modes =
