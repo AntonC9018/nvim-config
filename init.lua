@@ -349,6 +349,10 @@ local plugins =
                         path = vim.fn.stdpath('data') .. '/telescope_history',
                         limit = 1000,
                     },
+                    cache_picker =
+                    {
+                        ignore_empty_prompt = true,
+                    },
                 },
                 extensions =
                 {
@@ -368,10 +372,55 @@ local plugins =
             local builtin = require("telescope.builtin")
             local utils = require("telescope.utils")
 
-            local function searchMaybeSelection(picker, opts)
+            local lastTelescopePromptByType = {}
+
+            local function rememberTelescopePrompt(promptType, prompt_bufnr)
+                local currentPrompt = action_state.get_current_line()
+                if currentPrompt ~= nil and currentPrompt ~= "" then
+                    lastTelescopePromptByType[promptType] = currentPrompt
+                end
+            end
+
+            local function withRememberedTelescopePrompt(promptType, opts)
+                opts = vim.tbl_extend("force", {}, opts or {})
+
+                if opts.default_text == nil then
+                    opts.default_text = lastTelescopePromptByType[promptType]
+                end
+
+                local attachMappings = opts.attach_mappings
+                opts.attach_mappings = function(prompt_bufnr, map)
+                    local function rememberBeforeAction(action)
+                        return function()
+                            rememberTelescopePrompt(promptType, prompt_bufnr)
+                            return action(prompt_bufnr)
+                        end
+                    end
+
+                    map("i", "<C-c>", rememberBeforeAction(actions.close))
+                    map("n", "<esc>", rememberBeforeAction(actions.close))
+                    map({ "i", "n" }, "<CR>", rememberBeforeAction(actions.select_default))
+
+                    if attachMappings then
+                        return attachMappings(prompt_bufnr, map)
+                    end
+
+                    return true
+                end
+
+                return opts
+            end
+
+            local function telescopePickerWithRememberedPrompt(promptType, picker, opts)
+                return function()
+                    picker(withRememberedTelescopePrompt(promptType, opts))
+                end
+            end
+
+            local function searchMaybeSelection(promptType, picker, opts)
                 local mode = vim.fn.mode()
                 if mode ~= 'v' and mode ~= 'V' then
-                    picker(opts)
+                    picker(withRememberedTelescopePrompt(promptType, opts))
                     return
                 end
 
@@ -379,8 +428,9 @@ local plugins =
                 {
                     func = function(lines)
                         local text = table.concat(lines, '\n')
+                        opts = vim.tbl_extend("force", {}, opts or {})
                         opts.default_text = text
-                        picker(opts)
+                        picker(withRememberedTelescopePrompt(promptType, opts))
                     end
                 })
             end
@@ -392,7 +442,7 @@ local plugins =
             --     desc = "Open the window of windows",
             -- })
             vim.keymap.set({ "n", "v" }, "wp", function()
-                searchMaybeSelection(builtin.find_files, {
+                searchMaybeSelection("find_files", builtin.find_files, {
                     hidden = true,
                     no_ignore = true,
                     no_ignore_parent = true,
@@ -402,7 +452,7 @@ local plugins =
             })
 
             vim.keymap.set({ "n", "v" }, "wF", function()
-                searchMaybeSelection(builtin.live_grep, {
+                searchMaybeSelection("live_grep", builtin.live_grep, {
                     grep_open_files = false,
                     cwd = utils.buffer_dir(),
                 })
@@ -411,7 +461,7 @@ local plugins =
             })
 
             vim.keymap.set({ "n", "v" }, "wf", function()
-                searchMaybeSelection(builtin.live_grep, {
+                searchMaybeSelection("live_grep", builtin.live_grep, {
                     grep_open_files = false,
                 })
             end, {
@@ -420,36 +470,91 @@ local plugins =
 
             vim.keymap.set({ "n" }, "w*", function()
                 local cword = vim.fn.expand("<cword>")
-                builtin.live_grep({
+                builtin.live_grep(withRememberedTelescopePrompt("live_grep", {
                     grep_open_files = false,
                     default_text = cword,
-                })
+                }))
             end, {
                 desc = "Search under cursor",
             })
 
             do
                 local t = { desc = "Show workspace symbols" }
-                vim.keymap.set("n", "<leader><leader>", builtin.lsp_dynamic_workspace_symbols, t)
-                vim.keymap.set("n", "ws", builtin.lsp_dynamic_workspace_symbols, t)
+                local searchWorkspaceSymbols =
+                    telescopePickerWithRememberedPrompt(
+                        "lsp_dynamic_workspace_symbols",
+                        builtin.lsp_dynamic_workspace_symbols
+                    )
+                vim.keymap.set("n", "<leader><leader>", searchWorkspaceSymbols, t)
+                vim.keymap.set("n", "ws", searchWorkspaceSymbols, t)
             end
 
-            vim.keymap.set("n", "wh", builtin.help_tags, {
-                desc = "Search help",
-            })
-            vim.keymap.set("n", "<leader>hm", builtin.command_history, {})
-            vim.keymap.set("n", "<leader>hf", builtin.search_history, {})
-            vim.keymap.set("n", "wj", builtin.jumplist, {
-                desc = "Search jumplist",
-            })
-            vim.keymap.set("n", "wk", builtin.keymaps, {
-                desc = "Search keymaps",
-            })
-            vim.keymap.set("n", "gu", builtin.lsp_references, {})
-            vim.keymap.set("n", "gi", builtin.lsp_implementations, {})
-            vim.keymap.set("n", "gt", builtin.lsp_type_definitions, {})
-            vim.keymap.set('n', 'gd', builtin.lsp_definitions, {})
-            vim.keymap.set("n", "gs", builtin.lsp_document_symbols, {})
+            vim.keymap.set(
+                "n",
+                "wh",
+                telescopePickerWithRememberedPrompt("help_tags", builtin.help_tags),
+                {
+                    desc = "Search help",
+                }
+            )
+            vim.keymap.set(
+                "n",
+                "<leader>hm",
+                telescopePickerWithRememberedPrompt("command_history", builtin.command_history),
+                {}
+            )
+            vim.keymap.set(
+                "n",
+                "<leader>hf",
+                telescopePickerWithRememberedPrompt("search_history", builtin.search_history),
+                {}
+            )
+            vim.keymap.set(
+                "n",
+                "wj",
+                telescopePickerWithRememberedPrompt("jumplist", builtin.jumplist),
+                {
+                    desc = "Search jumplist",
+                }
+            )
+            vim.keymap.set(
+                "n",
+                "wk",
+                telescopePickerWithRememberedPrompt("keymaps", builtin.keymaps),
+                {
+                    desc = "Search keymaps",
+                }
+            )
+            vim.keymap.set(
+                "n",
+                "gu",
+                telescopePickerWithRememberedPrompt("lsp_references", builtin.lsp_references),
+                {}
+            )
+            vim.keymap.set(
+                "n",
+                "gi",
+                telescopePickerWithRememberedPrompt("lsp_implementations", builtin.lsp_implementations),
+                {}
+            )
+            vim.keymap.set(
+                "n",
+                "gt",
+                telescopePickerWithRememberedPrompt("lsp_type_definitions", builtin.lsp_type_definitions),
+                {}
+            )
+            vim.keymap.set(
+                'n',
+                'gd',
+                telescopePickerWithRememberedPrompt("lsp_definitions", builtin.lsp_definitions),
+                {}
+            )
+            vim.keymap.set(
+                "n",
+                "gs",
+                telescopePickerWithRememberedPrompt("lsp_document_symbols", builtin.lsp_document_symbols),
+                {}
+            )
             vim.keymap.set("n", "wy", function()
                 vim.cmd("Telescope resume")
             end, {

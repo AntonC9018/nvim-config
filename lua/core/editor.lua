@@ -26,6 +26,19 @@ vim.cmd("set isfname-=:")
 
 vim.cmd("set whichwrap+=h,l")
 
+local function editInit()
+    local initPath = vim.fn.stdpath("config") .. "/init.lua"
+    vim.cmd("edit " .. vim.fn.fnameescape(initPath))
+end
+
+vim.api.nvim_create_user_command("Einit", editInit, {
+    desc = "Open init.lua",
+})
+
+vim.cmd([[
+cnoreabbrev <expr> einit getcmdtype() ==# ':' && getcmdline() ==# 'einit' ? 'Einit' : 'einit'
+]])
+
 vim.o.autoindent = true
 vim.o.cmdheight = 2
 
