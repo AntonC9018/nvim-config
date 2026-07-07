@@ -190,9 +190,9 @@ vim.keymap.set({ "i" }, "<C-z>", "<C-o>u")
 vim.keymap.set({ "i" }, "<C-y>", "<C-o><C-r>")
 
 vim.keymap.set("n", "<leader>wd", function()
-    vim.cmd("let @" .. helper.systemClipboardRegister .. "=getcwd()")
+    vim.cmd("Trouble diagnostics toggle filter.buf=0")
 end, {
-    desc = "Copy the current working directory to clipboard",
+    desc = "Open current file diagnostics in Trouble",
 })
 vim.keymap.set("n", "<leader>wc", function()
     vim.cmd("cd %:h")

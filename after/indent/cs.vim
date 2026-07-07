@@ -11,8 +11,8 @@ else
   let b:undo_indent = 'setlocal indentexpr< cinoptions<'
 endif
 
-function! s:EndsWithLambdaArrow(line) abort
-  return a:line =~# '=>\s*\%(//.*\)\=$'
+function! s:EndsWithLambdaBodyIntro(line) abort
+  return a:line =~# '=>\s*\%(new\s*\)\?\%(//.*\)\=$'
 endfunction
 
 function! s:IsLambdaBlockOpen(lnum) abort
@@ -21,7 +21,7 @@ function! s:IsLambdaBlockOpen(lnum) abort
   endif
 
   let l:previous = prevnonblank(a:lnum - 1)
-  return l:previous > 0 && s:EndsWithLambdaArrow(getline(l:previous))
+  return l:previous > 0 && s:EndsWithLambdaBodyIntro(getline(l:previous))
 endfunction
 
 function! s:FindEnclosingOpenBrace(lnum) abort
@@ -48,7 +48,7 @@ function! s:AntonCSIndent(lnum) abort
 
   if l:line =~# '^\s*{'
     let l:previous = prevnonblank(a:lnum - 1)
-    if l:previous > 0 && s:EndsWithLambdaArrow(getline(l:previous))
+    if l:previous > 0 && s:EndsWithLambdaBodyIntro(getline(l:previous))
       return indent(l:previous)
     endif
   endif
