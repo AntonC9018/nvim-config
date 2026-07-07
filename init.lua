@@ -882,6 +882,9 @@ local plugins =
             -- "folke/neodev.nvim",
         },
         config = function(_)
+            local lspRenameUndo = require("core.lsp_rename_undo")
+            lspRenameUndo.setup()
+
             local defaultCapabilities = vim.tbl_deep_extend(
                 "force",
                 vim.lsp.protocol.make_client_capabilities(),
@@ -1334,7 +1337,7 @@ local plugins =
                         opts = opts,
                     })
 
-                    setKey('n', '<F2>', vim.lsp.buf.rename, "Rename symbol")
+                    setKey('n', '<F2>', lspRenameUndo.rename, "Rename symbol")
                     setKey({ 'n', 'v' }, '<C-.>', vim.lsp.buf.code_action, "LSP code action")
                     setKey({ 'n', 'v' }, '<leader>r', function()
                         vim.lsp.buf.format({
