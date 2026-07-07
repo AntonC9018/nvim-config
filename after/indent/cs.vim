@@ -15,6 +15,21 @@ function! s:EndsWithLambdaBodyIntro(line) abort
   return a:line =~# '=>\s*\%(new\s*\)\?\%(//.*\)\=$'
 endfunction
 
+function! s:EndsWithTargetTypedNewArgument(line) abort
+  return a:line =~# '\<new\s*(\s*)\s*\%(//.*\)\=$'
+endfunction
+
+function! s:EndsWithTargetTypedNewConstructorStart(line) abort
+  return a:line =~# '\<new\s*(\s*\%(//.*\)\=$'
+endfunction
+
+function! s:HasUnclosedParen(line) abort
+  let l:code = substitute(a:line, '//.*$', '', '')
+  let l:open_count = strlen(substitute(l:code, '[^(]', '', 'g'))
+  let l:close_count = strlen(substitute(l:code, '[^)]', '', 'g'))
+  return l:open_count > l:close_count
+endfunction
+
 function! s:IsLambdaBlockOpen(lnum) abort
   if a:lnum <= 1 || getline(a:lnum) !~# '^\s*{\s*\%(//.*\)\=$'
     return v:false
@@ -22,6 +37,15 @@ function! s:IsLambdaBlockOpen(lnum) abort
 
   let l:previous = prevnonblank(a:lnum - 1)
   return l:previous > 0 && s:EndsWithLambdaBodyIntro(getline(l:previous))
+endfunction
+
+function! s:IsTargetTypedNewInitializerOpen(lnum) abort
+  if a:lnum <= 1 || getline(a:lnum) !~# '^\s*{\s*\%(//.*\)\=$'
+    return v:false
+  endif
+
+  let l:previous = prevnonblank(a:lnum - 1)
+  return l:previous > 0 && s:EndsWithTargetTypedNewArgument(getline(l:previous))
 endfunction
 
 function! s:FindEnclosingOpenBrace(lnum) abort
@@ -51,9 +75,32 @@ function! s:AntonCSIndent(lnum) abort
     if l:previous > 0 && s:EndsWithLambdaBodyIntro(getline(l:previous))
       return indent(l:previous)
     endif
+
+    if l:previous > 0 && s:EndsWithTargetTypedNewArgument(getline(l:previous))
+      return indent(l:previous)
+    endif
+  endif
+
+  if l:line =~# '^\s*)'
+    let l:previous = prevnonblank(a:lnum - 1)
+    if l:previous > 0 && s:EndsWithTargetTypedNewArgument(getline(l:previous)) && s:HasUnclosedParen(getline(l:previous))
+      return indent(l:previous)
+    endif
+
+    if l:previous > 0 && s:EndsWithTargetTypedNewConstructorStart(getline(l:previous)) && s:HasUnclosedParen(getline(l:previous))
+      return indent(l:previous) + shiftwidth()
+    endif
   endif
 
   let l:open_brace = s:FindEnclosingOpenBrace(a:lnum)
+  if l:open_brace > 0 && s:IsTargetTypedNewInitializerOpen(l:open_brace)
+    if l:line =~# '^\s*}'
+      return indent(l:open_brace)
+    endif
+
+    return max([l:default_indent, indent(l:open_brace) + shiftwidth()])
+  endif
+
   if l:open_brace > 0 && s:IsLambdaBlockOpen(l:open_brace)
     if l:line =~# '^\s*}'
       return indent(l:open_brace)

@@ -149,6 +149,56 @@ local function run()
         "C# top-level lambda block braces should stay aligned with the lambda line"
     )
 
+    assert_reindents(
+        {
+            "foreach (var newDocument in ids.New)",
+            "{",
+            "_factDb.Add(new()",
+            ");",
+            "}",
+        },
+        {
+            "foreach (var newDocument in ids.New)",
+            "{",
+            "    _factDb.Add(new()",
+            "    );",
+            "}",
+        },
+        "C# call terminator after target-typed new should align with the invocation line"
+    )
+
+    assert_reindents(
+        {
+            "foreach (var newDocument in ids.New)",
+            "{",
+            "_factDb.Add(new()",
+            "{",
+            "});",
+            "}",
+        },
+        {
+            "foreach (var newDocument in ids.New)",
+            "{",
+            "    _factDb.Add(new()",
+            "    {",
+            "    });",
+            "}",
+        },
+        "C# target-typed new initializer braces inside a call should align with the invocation line"
+    )
+
+    assert_reindents(
+        {
+            "_factDb.Add(new(",
+            "));",
+        },
+        {
+            "_factDb.Add(new(",
+            "    ));",
+        },
+        "C# target-typed constructor terminator inside a call should stay one shiftwidth in"
+    )
+
     vim.cmd("qa!")
 end
 
