@@ -17,7 +17,7 @@ local SYMBOL_KIND = {
     Interface = 11,
 }
 
-local MANUAL_TRIGGER = 1
+local INVOKED_TRIGGER = 1
 local SIGNATURE_HELP_INVOKED = 1
 local TIMEOUT_MS = 5000
 local INSERT_TEXT_FORMAT_SNIPPET = 2
@@ -321,6 +321,14 @@ local function parameterNameAndType(parameter)
     return name, normalizeTypeName(typeName)
 end
 
+local function expectedTypeFromTypeName(typeName)
+    typeName = normalizeTypeName(typeName)
+    return {
+        name = typeName,
+        shortName = shortTypeName(typeName),
+    }
+end
+
 local declarationParameterListKeywords = {
     ["catch"] = true,
     ["checked"] = true,
@@ -382,7 +390,7 @@ parameterTypesBeforeCursor = function(bufnr)
     return result
 end
 
-local function expectedTypeFromSignature(signatureHelp)
+local function signatureContext(signatureHelp)
     if not signatureHelp or not signatureHelp.signatures then
         return nil
     end
@@ -392,13 +400,28 @@ local function expectedTypeFromSignature(signatureHelp)
         return nil
     end
 
-    local parameters = splitTopLevelParameters(signatureParameterList(signature.label) or "")
-    local parameter = parameters[(signatureHelp.activeParameter or 0) + 1]
-    if not parameter then
+    local parameters = {}
+    for index, parameter in ipairs(splitTopLevelParameters(signatureParameterList(signature.label) or "")) do
+        local parameterName, typeName = parameterNameAndType(parameter)
+        local expectedType = typeName and expectedTypeFromTypeName(typeName) or expectedTypeFromParameter(parameter)
+        table.insert(parameters, {
+            index = index,
+            name = parameterName,
+            typeName = typeName,
+            expectedType = expectedType,
+        })
+    end
+
+    local activeParameterIndex = (signatureHelp.activeParameter or 0) + 1
+    if not parameters[activeParameterIndex] then
         return nil
     end
 
-    return expectedTypeFromParameter(parameter)
+    return {
+        activeParameterIndex = activeParameterIndex,
+        activeParameter = parameters[activeParameterIndex],
+        parameters = parameters,
+    }
 end
 
 local function signatureHelp(client, bufnr, callback)
@@ -641,19 +664,19 @@ local function isCompatibleItem(item, expectedType, implementations, localVariab
     return false
 end
 
-local function markExpectedItem(item)
+local function markExpectedItem(item, rank)
     item = vim.deepcopy(item)
-    item.sortText = "0000_expected_" .. (item.sortText or item.label)
+    item.sortText = string.format("0000_expected_%02d_%s", rank or 0, item.sortText or item.label)
     item.dup = 0
     return item
 end
 
-local function addExpectedItem(result, seen, item)
+local function addExpectedItem(result, seen, item, rank)
     if not item.label or seen[item.label] then
         return
     end
 
-    table.insert(result, markExpectedItem(item))
+    table.insert(result, markExpectedItem(item, rank))
     seen[item.label] = true
 end
 
@@ -693,14 +716,106 @@ end
 
 local function addNewExpressionItems(result, seen, expectedType, info)
     if isConstructibleTypeName(expectedType.name, info) then
-        addExpectedItem(result, seen, newExpressionItem(expectedType.name))
+        addExpectedItem(result, seen, newExpressionItem(expectedType.name), 2)
     end
 
     local implementationNames = vim.tbl_keys(info.implementations)
     table.sort(implementationNames)
     for _, implementationName in ipairs(implementationNames) do
-        addExpectedItem(result, seen, newExpressionItem(implementationName))
+        addExpectedItem(result, seen, newExpressionItem(implementationName), 2)
     end
+end
+
+local function textBeforeCursor(bufnr)
+    local cursor = vim.api.nvim_win_get_cursor(0)
+    local lines = vim.api.nvim_buf_get_lines(bufnr, 0, cursor[1], false)
+    if #lines == 0 then
+        return ""
+    end
+
+    lines[#lines] = lines[#lines]:sub(1, cursor[2])
+    return table.concat(lines, "\n")
+end
+
+local function currentArgumentTextBeforeCursor(bufnr)
+    local text = textBeforeCursor(bufnr)
+    local depth = 0
+
+    for index = #text, 1, -1 do
+        local character = text:sub(index, index)
+        if character == ")" then
+            depth = depth + 1
+        elseif character == "(" then
+            if depth == 0 then
+                return text:sub(index + 1)
+            end
+
+            depth = depth - 1
+        end
+    end
+
+    return text
+end
+
+local function namedArgumentsBeforeCursor(bufnr)
+    local result = {}
+    for name in currentArgumentTextBeforeCursor(bufnr):gmatch("([_%a][_%w]*)%s*:") do
+        result[name] = true
+    end
+
+    return result
+end
+
+local function namedArgumentItem(parameter, signature)
+    local sortIndex = parameter.index == signature.activeParameterIndex
+        and 0
+        or (100 + parameter.index)
+    local label = parameter.name .. ":"
+
+    return {
+        label = label,
+        kind = COMPLETION_KIND.Property,
+        sortText = string.format("%03d_%s", sortIndex, parameter.name),
+        filterText = parameter.name,
+        insertText = parameter.name .. ": $0",
+        insertTextFormat = INSERT_TEXT_FORMAT_SNIPPET,
+        detail = parameter.typeName and ("Named argument: " .. parameter.typeName) or "Named argument",
+    }
+end
+
+local function addNamedArgumentItems(result, seen, signature, usedNamedArguments)
+    if not signature then
+        return
+    end
+
+    for _, parameter in ipairs(signature.parameters) do
+        if parameter.name
+            and parameter.index >= signature.activeParameterIndex
+            and not usedNamedArguments[parameter.name]
+        then
+            addExpectedItem(result, seen, namedArgumentItem(parameter, signature), 1)
+        end
+    end
+end
+
+local function hasNamedArgumentItems(signature)
+    if not signature then
+        return false
+    end
+
+    for _, parameter in ipairs(signature.parameters) do
+        if parameter.name and parameter.index >= signature.activeParameterIndex then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function hasArgumentCompletionItems(signature)
+    return signature
+        and (signature.activeParameter.expectedType ~= nil or hasNamedArgumentItems(signature))
+        or false
 end
 
 local function expectedEnumMembers(items, expectedType)
@@ -735,7 +850,7 @@ function source:get_position_encoding_kind()
 end
 
 function source:complete(params, callback)
-    if params.completion_context.triggerKind ~= MANUAL_TRIGGER then
+    if params.completion_context.triggerKind ~= INVOKED_TRIGGER then
         callback({})
         return
     end
@@ -765,9 +880,19 @@ function source:complete(params, callback)
     end, TIMEOUT_MS)
 
     signatureHelp(client, bufnr, function(help)
-        local expectedType = expectedTypeFromSignature(help)
-        if not expectedType then
+        local signature = signatureContext(help)
+        if not signature then
             finish({})
+            return
+        end
+
+        local expectedType = signature.activeParameter.expectedType
+        local usedNamedArguments = namedArgumentsBeforeCursor(bufnr)
+        if not expectedType then
+            local result = {}
+            local seen = {}
+            addNamedArgumentItems(result, seen, signature, usedNamedArguments)
+            finish(result)
             return
         end
 
@@ -786,6 +911,7 @@ function source:complete(params, callback)
                         addExpectedItem(enumMembers, seen, item)
                     end
                 end
+                addNamedArgumentItems(enumMembers, seen, signature, usedNamedArguments)
                 finish(enumMembers)
                 return
             end
@@ -801,6 +927,7 @@ function source:complete(params, callback)
                     end
                 end
 
+                addNamedArgumentItems(result, seen, signature, usedNamedArguments)
                 addNewExpressionItems(result, seen, expectedType, info)
                 finish(result)
             end)
@@ -869,7 +996,7 @@ function M.complete_argument_or_fallback(cmp, fallback)
             return
         end
 
-        if expectedTypeFromSignature(help) then
+        if hasArgumentCompletionItems(signatureContext(help)) then
             cmp.complete({
                 config = {
                     sources = cmp.config.sources({
