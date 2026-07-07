@@ -122,7 +122,7 @@ vim.api.nvim_create_autocmd("ColorScheme",
         highlight("DiagnosticUnderlineError", { underline = true, sp = "#EE5555" })
         highlight("DiagnosticError", { fg = "#EE5555" })
 
-        for _, type in ipairs({ "@lsp.type.delegate.cs", "@lsp.type.generic.cs", "@lsp.type.record.cs" }) do
+        for _, type in ipairs({ "@lsp.type.delegate.cs", "@lsp.type.generic.cs", "@lsp.type.record.cs", "@lsp.type.union.cs" }) do
             highlight(type, { fg = "#1f8730" });
         end
         for _, type in ipairs({ "@lsp.type.recordStruct.cs", "@lsp.type.struct.cs" }) do
