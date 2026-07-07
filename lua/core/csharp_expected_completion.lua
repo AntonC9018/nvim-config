@@ -21,6 +21,8 @@ local INVOKED_TRIGGER = 1
 local SIGNATURE_HELP_INVOKED = 1
 local TIMEOUT_MS = 5000
 local INSERT_TEXT_FORMAT_SNIPPET = 2
+local SYNTHETIC_COMPLETION_ITEM = "__roslyn_expected_arg_synthetic"
+local ORIGINAL_COMPLETION_ITEM = "__roslyn_expected_arg_original"
 
 local typeAliases = {
     Boolean = "bool",
@@ -665,9 +667,15 @@ local function isCompatibleItem(item, expectedType, implementations, localVariab
 end
 
 local function markExpectedItem(item, rank)
+    local originalItem = item[SYNTHETIC_COMPLETION_ITEM] ~= true and vim.deepcopy(item) or nil
+
     item = vim.deepcopy(item)
     item.sortText = string.format("0000_expected_%02d_%s", rank or 0, item.sortText or item.label)
     item.dup = 0
+    if originalItem then
+        item[ORIGINAL_COMPLETION_ITEM] = originalItem
+    end
+
     return item
 end
 
@@ -678,6 +686,24 @@ local function addExpectedItem(result, seen, item, rank)
 
     table.insert(result, markExpectedItem(item, rank))
     seen[item.label] = true
+end
+
+local function markSyntheticCompletionItem(item)
+    item[SYNTHETIC_COMPLETION_ITEM] = true
+    return item
+end
+
+local function isSyntheticCompletionItem(item)
+    return item and item[SYNTHETIC_COMPLETION_ITEM] == true
+end
+
+local function roslynCompletionItem(item)
+    return item and (item[ORIGINAL_COMPLETION_ITEM] or item) or nil
+end
+
+local function shouldResolveWithRoslyn(item)
+    local lspItem = roslynCompletionItem(item)
+    return lspItem and not isSyntheticCompletionItem(item) and lspItem.data ~= nil
 end
 
 local function looksLikeInterfaceName(typeName)
@@ -703,7 +729,7 @@ end
 local function newExpressionItem(typeName)
     typeName = normalizeTypeName(typeName)
     local label = "new " .. typeName .. "()"
-    return {
+    return markSyntheticCompletionItem({
         label = label,
         kind = COMPLETION_KIND.Constructor,
         sortText = "0001_new_" .. typeName,
@@ -711,7 +737,7 @@ local function newExpressionItem(typeName)
         insertText = "new " .. typeName .. "($0)",
         insertTextFormat = INSERT_TEXT_FORMAT_SNIPPET,
         detail = "Create " .. typeName,
-    }
+    })
 end
 
 local function addNewExpressionItems(result, seen, expectedType, info)
@@ -772,7 +798,7 @@ local function namedArgumentItem(parameter, signature)
         or (100 + parameter.index)
     local label = parameter.name .. ":"
 
-    return {
+    return markSyntheticCompletionItem({
         label = label,
         kind = COMPLETION_KIND.Property,
         sortText = string.format("%03d_%s", sortIndex, parameter.name),
@@ -780,7 +806,7 @@ local function namedArgumentItem(parameter, signature)
         insertText = parameter.name .. ": $0",
         insertTextFormat = INSERT_TEXT_FORMAT_SNIPPET,
         detail = parameter.typeName and ("Named argument: " .. parameter.typeName) or "Named argument",
-    }
+    })
 end
 
 local function addNamedArgumentItems(result, seen, signature, usedNamedArguments)
@@ -936,18 +962,28 @@ function source:complete(params, callback)
 end
 
 function source:resolve(completionItem, callback)
+    if not shouldResolveWithRoslyn(completionItem) then
+        callback(completionItem)
+        return
+    end
+
     local client = findRoslynClient(vim.api.nvim_get_current_buf(), "textDocument/completion")
     if not client then
         callback(completionItem)
         return
     end
 
-    request(client, "completionItem/resolve", completionItem, vim.api.nvim_get_current_buf(), function(resolved)
+    request(client, "completionItem/resolve", roslynCompletionItem(completionItem), vim.api.nvim_get_current_buf(), function(resolved)
         callback(resolved or completionItem)
     end)
 end
 
 function source:execute(completionItem, callback)
+    if isSyntheticCompletionItem(completionItem) then
+        callback(completionItem)
+        return
+    end
+
     if not completionItem.command then
         callback(completionItem)
         return

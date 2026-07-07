@@ -30,6 +30,7 @@ end
 
 local function with_fake_roslyn(signatureHelp, completionItems, callback)
     local originalGetClients = vim.lsp.get_clients
+    local requests = {}
     local fakeClient = {
         id = 10,
         name = "roslyn",
@@ -37,6 +38,11 @@ local function with_fake_roslyn(signatureHelp, completionItems, callback)
     }
 
     function fakeClient:request(method, params, handler, bufnr)
+        table.insert(requests, {
+            method = method,
+            params = params,
+        })
+
         if method == "textDocument/signatureHelp" then
             handler(nil, signatureHelp)
         elseif method == "textDocument/completion" then
@@ -56,7 +62,7 @@ local function with_fake_roslyn(signatureHelp, completionItems, callback)
         return {}
     end
 
-    local ok, err = pcall(callback)
+    local ok, err = pcall(callback, requests)
     vim.lsp.get_clients = originalGetClients
     if not ok then
         error(err)
@@ -129,8 +135,9 @@ local function run()
                 detail = "static Thing ThingProvider.Default",
             },
         },
-        function()
-            local response = complete_argument(csharpExpectedCompletion.new())
+        function(requests)
+            local source = csharpExpectedCompletion.new()
+            local response = complete_argument(source)
 
             assert_equal(
                 completion_labels(response.items),
@@ -154,6 +161,32 @@ local function run()
                     "name: $0",
                 },
                 "C# named argument completions should insert named argument snippets"
+            )
+
+            local requestCount = #requests
+            source:resolve(response.items[3], function(resolved)
+                assert_equal(
+                    resolved,
+                    response.items[3],
+                    "C# synthetic named argument completion should resolve locally"
+                )
+            end)
+
+            response.items[3].command = {
+                command = "synthetic.command",
+            }
+            source:execute(response.items[3], function(executed)
+                assert_equal(
+                    executed,
+                    response.items[3],
+                    "C# synthetic named argument completion should execute locally"
+                )
+            end)
+
+            assert_equal(
+                #requests,
+                requestCount,
+                "C# synthetic named argument completion should not call Roslyn on confirm"
             )
         end
     )
