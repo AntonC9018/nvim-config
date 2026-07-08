@@ -199,6 +199,44 @@ local function run()
         "C# target-typed constructor terminator inside a call should stay one shiftwidth in"
     )
 
+    assert_reindents(
+        {
+            "public void Add<T>(Creation creation, T factData)",
+            "{",
+            "_factDb.Add<InputDocumentFact>(new(",
+            "common: new()",
+            "{",
+            "CreatedAt = DateTimeOffset.UtcNow,",
+            "Creation = newDocumentsCreation,",
+            "RunId = _runIdProvider.RunId,",
+            "// N/A",
+            "InputDependenciesHash = new Hash(),",
+            "// Should this hash the ids?",
+            "FullContentHash = Hash.GetFullFactHash(fact),",
+            "},",
+            "fact));",
+            "}",
+        },
+        {
+            "public void Add<T>(Creation creation, T factData)",
+            "{",
+            "    _factDb.Add<InputDocumentFact>(new(",
+            "        common: new()",
+            "        {",
+            "            CreatedAt = DateTimeOffset.UtcNow,",
+            "            Creation = newDocumentsCreation,",
+            "            RunId = _runIdProvider.RunId,",
+            "            // N/A",
+            "            InputDependenciesHash = new Hash(),",
+            "            // Should this hash the ids?",
+            "            FullContentHash = Hash.GetFullFactHash(fact),",
+            "        },",
+            "        fact));",
+            "}",
+        },
+        "C# target-typed constructor named argument initializers should stay one shiftwidth in"
+    )
+
     vim.cmd("qa!")
 end
 

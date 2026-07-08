@@ -66,6 +66,39 @@ function! s:FindEnclosingOpenBrace(lnum) abort
   endtry
 endfunction
 
+function! s:FindEnclosingOpenParen(lnum) abort
+  let l:view = winsaveview()
+  try
+    let l:line = getline(a:lnum)
+    let l:closing_paren = match(l:line, ')')
+    let l:before_closing_paren = l:closing_paren > 0 ? l:line[:l:closing_paren - 1] : ''
+    if l:closing_paren >= 0 && l:before_closing_paren =~# '^\s*$'
+      call cursor(a:lnum, l:closing_paren + 1)
+    else
+      call cursor(a:lnum, 1)
+    endif
+
+    return searchpairpos('(', '', ')', 'bnW')
+  finally
+    call winrestview(l:view)
+  endtry
+endfunction
+
+function! s:IsTargetTypedNewConstructorParen(pos) abort
+  let l:line_number = a:pos[0]
+  let l:column = a:pos[1]
+  return l:line_number > 0 && strpart(getline(l:line_number), 0, l:column) =~# '\<new\s*($'
+endfunction
+
+function! s:FindEnclosingTargetTypedNewConstructor(lnum) abort
+  let l:open_paren = s:FindEnclosingOpenParen(a:lnum)
+  return s:IsTargetTypedNewConstructorParen(l:open_paren) ? l:open_paren[0] : 0
+endfunction
+
+function! s:IsInitializerEntryLine(line) abort
+  return a:line =~# '^\s*\%(//\|$\)' || a:line =~# '^\s*\%(@\=\k\+\|\[[^]]*\]\)\s*='
+endfunction
+
 function! s:AntonCSIndent(lnum) abort
   let l:line = getline(a:lnum)
   let l:default_indent = GetCSIndent(a:lnum)
@@ -98,7 +131,12 @@ function! s:AntonCSIndent(lnum) abort
       return indent(l:open_brace)
     endif
 
-    return max([l:default_indent, indent(l:open_brace) + shiftwidth()])
+    let l:initializer_indent = indent(l:open_brace) + shiftwidth()
+    if s:FindEnclosingTargetTypedNewConstructor(l:open_brace) > 0 && s:IsInitializerEntryLine(l:line)
+      return l:initializer_indent
+    endif
+
+    return max([l:default_indent, l:initializer_indent])
   endif
 
   if l:open_brace > 0 && s:IsLambdaBlockOpen(l:open_brace)
@@ -107,6 +145,11 @@ function! s:AntonCSIndent(lnum) abort
     endif
 
     return max([l:default_indent, indent(l:open_brace) + shiftwidth()])
+  endif
+
+  let l:constructor_start = s:FindEnclosingTargetTypedNewConstructor(a:lnum)
+  if l:constructor_start > 0
+    return indent(l:constructor_start) + shiftwidth()
   endif
 
   return l:default_indent
