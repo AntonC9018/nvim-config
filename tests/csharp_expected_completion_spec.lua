@@ -28,7 +28,29 @@ local function completion_labels(items)
     return result
 end
 
-local function with_fake_roslyn(signatureHelp, completionItems, callback)
+local function first_labels(items, count)
+    local result = {}
+    for index = 1, math.min(count, #items) do
+        table.insert(result, items[index].label)
+    end
+
+    return result
+end
+
+local function with_fake_roslyn(configOrSignatureHelp, completionItemsOrCallback, maybeCallback)
+    local config
+    local callback
+    if type(maybeCallback) == "function" then
+        config = {
+            signatureHelp = configOrSignatureHelp,
+            completionItems = completionItemsOrCallback,
+        }
+        callback = maybeCallback
+    else
+        config = configOrSignatureHelp or {}
+        callback = completionItemsOrCallback
+    end
+
     local originalGetClients = vim.lsp.get_clients
     local requests = {}
     local fakeClient = {
@@ -43,12 +65,17 @@ local function with_fake_roslyn(signatureHelp, completionItems, callback)
             params = params,
         })
 
-        if method == "textDocument/signatureHelp" then
-            handler(nil, signatureHelp)
+        local handlerFn = config.handlers and config.handlers[method] or nil
+        if handlerFn then
+            handlerFn(params, handler, requests)
+        elseif method == "textDocument/signatureHelp" then
+            handler(nil, config.signatureHelp)
         elseif method == "textDocument/completion" then
-            handler(nil, { items = completionItems })
+            handler(nil, { items = config.completionItems or {} })
         elseif method == "workspace/symbol" then
-            handler(nil, {})
+            handler(nil, config.workspaceSymbols or {})
+        elseif method == "textDocument/documentSymbol" then
+            handler(nil, config.documentSymbols or {})
         else
             handler(nil, nil)
         end
@@ -190,6 +217,141 @@ local function run()
             )
         end
     )
+
+    prepare_cs_buffer({
+        "class Example",
+        "{",
+        "    void Build()",
+        "    {",
+        "        _importer.ImportAll(context, [",
+        "            DocumentType.ScannedPdf,",
+        "            DocumentType.ThesisPdf,",
+        "            Do",
+    })
+
+    with_fake_roslyn({
+        signatureHelp = {
+            activeSignature = 0,
+            activeParameter = 1,
+            signatures = {
+                {
+                    label = "Importer.ImportAll(Context context, IReadOnlyCollection<DocumentType> documentTypes)",
+                },
+            },
+        },
+        completionItems = {
+            {
+                label = "DocumentType",
+                kind = 7,
+            },
+        },
+        workspaceSymbols = {
+            {
+                name = "DocumentType",
+                kind = 10,
+                location = {
+                    uri = "file:///tmp/DocumentType.cs",
+                    range = {
+                        start = { line = 0, character = 5 },
+                        ["end"] = { line = 4, character = 1 },
+                    },
+                },
+            },
+        },
+        documentSymbols = {
+            {
+                name = "DocumentType",
+                kind = 10,
+                range = {
+                    start = { line = 0, character = 5 },
+                    ["end"] = { line = 4, character = 1 },
+                },
+                selectionRange = {
+                    start = { line = 0, character = 5 },
+                    ["end"] = { line = 0, character = 17 },
+                },
+                children = {
+                    {
+                        name = "ScannedPdf",
+                        kind = 22,
+                    },
+                    {
+                        name = "ThesisPdf",
+                        kind = 22,
+                    },
+                    {
+                        name = "BankStatementPdf",
+                        kind = 22,
+                    },
+                },
+            },
+        },
+    }, function(requests)
+        local source = csharpExpectedCompletion.new()
+        local response = complete_argument(source)
+
+        assert_equal(
+            first_labels(response.items, 3),
+            {
+                "DocumentType.ScannedPdf",
+                "DocumentType.ThesisPdf",
+                "DocumentType.BankStatementPdf",
+            },
+            "C# collection argument completion should suggest all enum members using the Roslyn element type"
+        )
+
+        assert_equal(
+            vim.tbl_contains(vim.tbl_map(function(request)
+                return request.method
+            end, requests), "textDocument/documentSymbol"),
+            true,
+            "C# enum member completion should backfill missing members from Roslyn symbols"
+        )
+    end)
+
+    prepare_cs_buffer({
+        "class Example",
+        "{",
+        "    void Build()",
+        "    {",
+        "        _importer.ImportAll(context, [",
+        "            DocumentType.ScannedPdf,",
+        "            Do",
+    })
+
+    with_fake_roslyn({
+        signatureHelp = {
+            activeSignature = 0,
+            activeParameter = 1,
+            signatures = {
+                {
+                    label = "Importer.ImportAll(Context context, IReadOnlyCollection<DocumentType> documentTypes)",
+                },
+            },
+        },
+        completionItems = {
+            {
+                label = "DocumentType.ScannedPdf",
+                kind = 20,
+            },
+        },
+        handlers = {
+            ["workspace/symbol"] = function(params, handler)
+                handler({ code = -32603, message = "workspace symbol failed" }, nil)
+            end,
+        },
+    }, function()
+        local source = csharpExpectedCompletion.new()
+        local response = complete_argument(source)
+
+        assert_equal(
+            first_labels(response.items, 1),
+            {
+                "DocumentType.ScannedPdf",
+            },
+            "C# enum member completion should keep working when Roslyn symbol lookup fails"
+        )
+    end)
 
     vim.cmd("qa!")
 end

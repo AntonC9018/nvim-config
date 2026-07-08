@@ -14,6 +14,7 @@ local COMPLETION_KIND = {
 local SYMBOL_KIND = {
     Class = 5,
     Enum = 10,
+    EnumMember = 22,
     Interface = 11,
 }
 
@@ -23,6 +24,7 @@ local TIMEOUT_MS = 5000
 local INSERT_TEXT_FORMAT_SNIPPET = 2
 local SYNTHETIC_COMPLETION_ITEM = "__roslyn_expected_arg_synthetic"
 local ORIGINAL_COMPLETION_ITEM = "__roslyn_expected_arg_original"
+local markSyntheticCompletionItem
 
 local typeAliases = {
     Boolean = "bool",
@@ -62,6 +64,24 @@ local builtinTypeNames = {
     ["ulong"] = true,
     ["ushort"] = true,
     ["void"] = true,
+}
+
+local collectionLikeTypeNames = {
+    ArraySegment = true,
+    HashSet = true,
+    ICollection = true,
+    IEnumerable = true,
+    IList = true,
+    IReadOnlyCollection = true,
+    IReadOnlyList = true,
+    IReadOnlySet = true,
+    ISet = true,
+    ImmutableArray = true,
+    List = true,
+    Memory = true,
+    ReadOnlyMemory = true,
+    ReadOnlySpan = true,
+    Span = true,
 }
 
 local function trim(value)
@@ -235,6 +255,54 @@ local function splitTopLevelParameters(parameterList)
 
     table.insert(result, trim(parameterList:sub(start)))
     return result
+end
+
+local function typeArguments(typeName)
+    local openIndex = typeName:find("<", 1, true)
+    if not openIndex then
+        return {}
+    end
+
+    local depth = 0
+    local argumentStart = nil
+    for i = openIndex, #typeName do
+        local character = typeName:sub(i, i)
+        if character == "<" then
+            depth = depth + 1
+            if depth == 1 then
+                argumentStart = i + 1
+            end
+        elseif character == ">" then
+            depth = depth - 1
+            if depth == 0 and argumentStart then
+                return splitTopLevelParameters(typeName:sub(argumentStart, i - 1))
+            end
+        end
+    end
+
+    return {}
+end
+
+local function collectionElementTypeName(typeName)
+    typeName = normalizeTypeName(typeName or "")
+    if typeName == "" then
+        return nil
+    end
+
+    if typeName:sub(-2) == "[]" then
+        return normalizeTypeName(typeName:sub(1, -3))
+    end
+
+    if not collectionLikeTypeNames[shortTypeName(typeName)] then
+        return nil
+    end
+
+    local arguments = typeArguments(typeName)
+    if #arguments ~= 1 then
+        return nil
+    end
+
+    return normalizeTypeName(arguments[1])
 end
 
 local function signatureParameterList(label)
@@ -519,7 +587,9 @@ local function implementationInfo(self, client, bufnr, expectedType, callback)
     workspaceSymbols(client, bufnr, implementationSymbolQueries(expectedType), function(symbols)
         local info = {
             expectedSymbolKind = nil,
+            expectedSymbol = nil,
             implementations = {},
+            symbols = symbols or {},
         }
 
         for _, item in ipairs(symbols or {}) do
@@ -535,6 +605,7 @@ local function implementationInfo(self, client, bufnr, expectedType, callback)
                     or item.kind == SYMBOL_KIND.Enum)
         end)
 
+        info.expectedSymbol = symbol
         info.expectedSymbolKind = symbol and symbol.kind or nil
         if next(info.implementations) or not symbol or symbol.kind == SYMBOL_KIND.Enum or not symbol.location then
             self.implementationCache[cacheKey] = info
@@ -556,6 +627,156 @@ local function implementationInfo(self, client, bufnr, expectedType, callback)
             self.implementationCache[cacheKey] = info
             callback(info)
         end)
+    end)
+end
+
+local function enumMemberLabel(expectedType, memberName)
+    if type(memberName) ~= "string" or memberName == "" then
+        return nil
+    end
+
+    if vim.startswith(memberName, expectedType.shortName .. ".") then
+        return memberName
+    end
+
+    local shortName = memberName:match("([_%a][_%w]*)$") or memberName
+    return expectedType.shortName .. "." .. shortName
+end
+
+local function syntheticEnumMemberItem(expectedType, memberName)
+    local label = enumMemberLabel(expectedType, memberName)
+    if not label then
+        return nil
+    end
+
+    return markSyntheticCompletionItem({
+        label = label,
+        kind = COMPLETION_KIND.EnumMember,
+        sortText = label,
+        filterText = label,
+        insertText = label,
+        detail = expectedType.name,
+    })
+end
+
+local function enumMemberNamesFromWorkspaceSymbols(symbols, expectedType)
+    local result = {}
+    local seen = {}
+
+    for _, symbol in ipairs(symbols or {}) do
+        if symbol.kind == SYMBOL_KIND.EnumMember
+            and type(symbol.containerName) == "string"
+            and (symbol.containerName == expectedType.shortName
+                or symbol.containerName:match(expectedType.shortName .. "$"))
+        then
+            local label = enumMemberLabel(expectedType, symbol.name)
+            if label and not seen[label] then
+                table.insert(result, symbol.name)
+                seen[label] = true
+            end
+        end
+    end
+
+    return result
+end
+
+local function rangeContainsPosition(range, position)
+    if not range or not range.start or not range["end"] or not position then
+        return false
+    end
+
+    if position.line < range.start.line or position.line > range["end"].line then
+        return false
+    end
+
+    if position.line == range.start.line and position.character < range.start.character then
+        return false
+    end
+
+    if position.line == range["end"].line and position.character > range["end"].character then
+        return false
+    end
+
+    return true
+end
+
+local function enumMemberNamesFromDocumentSymbols(symbols, expectedType, expectedRange)
+    if vim.islist(symbols) and symbols[1] and symbols[1].location then
+        return enumMemberNamesFromWorkspaceSymbols(symbols, expectedType)
+    end
+
+    local result = {}
+    local seen = {}
+
+    local function addMember(symbol)
+        local label = enumMemberLabel(expectedType, symbol.name)
+        if label and not seen[label] then
+            table.insert(result, symbol.name)
+            seen[label] = true
+        end
+    end
+
+    local function visit(symbol)
+        if type(symbol) ~= "table" then
+            return
+        end
+
+        local range = symbol.selectionRange or symbol.range
+        if symbol.kind == SYMBOL_KIND.Enum
+            and symbol.name == expectedType.shortName
+            and (not expectedRange or rangeContainsPosition(range, expectedRange.start))
+        then
+            for _, child in ipairs(symbol.children or {}) do
+                if child.kind == SYMBOL_KIND.EnumMember and child.name then
+                    addMember(child)
+                end
+            end
+        end
+
+        for _, child in ipairs(symbol.children or {}) do
+            visit(child)
+        end
+    end
+
+    for _, symbol in ipairs(symbols or {}) do
+        visit(symbol)
+    end
+
+    return result
+end
+
+local function enumMembersInfo(self, client, bufnr, expectedType, info, callback)
+    local cacheKey = table.concat({ client.id, expectedType.name }, ":")
+    local cached = self.enumMemberCache[cacheKey]
+    if cached then
+        callback(cached)
+        return
+    end
+
+    local names = enumMemberNamesFromWorkspaceSymbols(info.symbols, expectedType)
+    local symbol = info.expectedSymbol
+    local location = symbol and symbol.location or nil
+    local uri = location and location.uri or nil
+    if #names > 0
+        or not location
+        or type(uri) ~= "string"
+        or not vim.startswith(uri, "file://")
+    then
+        self.enumMemberCache[cacheKey] = names
+        callback(names)
+        return
+    end
+
+    request(client, "textDocument/documentSymbol", {
+        textDocument = { uri = uri },
+    }, bufnr, function(symbols)
+        local resolved = enumMemberNamesFromDocumentSymbols(symbols, expectedType, location.range)
+        if #resolved == 0 then
+            resolved = names
+        end
+
+        self.enumMemberCache[cacheKey] = resolved
+        callback(resolved)
     end)
 end
 
@@ -688,7 +909,7 @@ local function addExpectedItem(result, seen, item, rank)
     seen[item.label] = true
 end
 
-local function markSyntheticCompletionItem(item)
+markSyntheticCompletionItem = function(item)
     item[SYNTHETIC_COMPLETION_ITEM] = true
     return item
 end
@@ -742,13 +963,13 @@ end
 
 local function addNewExpressionItems(result, seen, expectedType, info)
     if isConstructibleTypeName(expectedType.name, info) then
-        addExpectedItem(result, seen, newExpressionItem(expectedType.name), 2)
+        addExpectedItem(result, seen, newExpressionItem(expectedType.name), 20)
     end
 
     local implementationNames = vim.tbl_keys(info.implementations)
     table.sort(implementationNames)
     for _, implementationName in ipairs(implementationNames) do
-        addExpectedItem(result, seen, newExpressionItem(implementationName), 2)
+        addExpectedItem(result, seen, newExpressionItem(implementationName), 20)
     end
 end
 
@@ -783,6 +1004,22 @@ local function currentArgumentTextBeforeCursor(bufnr)
     return text
 end
 
+local function cursorInCollectionExpression(bufnr)
+    local text = currentArgumentTextBeforeCursor(bufnr)
+    local depth = 0
+
+    for i = 1, #text do
+        local character = text:sub(i, i)
+        if character == "[" then
+            depth = depth + 1
+        elseif character == "]" then
+            depth = math.max(depth - 1, 0)
+        end
+    end
+
+    return depth > 0
+end
+
 local function namedArgumentsBeforeCursor(bufnr)
     local result = {}
     for name in currentArgumentTextBeforeCursor(bufnr):gmatch("([_%a][_%w]*)%s*:") do
@@ -790,6 +1027,21 @@ local function namedArgumentsBeforeCursor(bufnr)
     end
 
     return result
+end
+
+local function argumentExpectedType(bufnr, parameter)
+    if not parameter then
+        return nil
+    end
+
+    if cursorInCollectionExpression(bufnr) then
+        local elementType = collectionElementTypeName(parameter.typeName)
+        if elementType then
+            return expectedTypeFromTypeName(elementType)
+        end
+    end
+
+    return parameter.expectedType
 end
 
 local function namedArgumentItem(parameter, signature)
@@ -819,7 +1071,7 @@ local function addNamedArgumentItems(result, seen, signature, usedNamedArguments
             and parameter.index >= signature.activeParameterIndex
             and not usedNamedArguments[parameter.name]
         then
-            addExpectedItem(result, seen, namedArgumentItem(parameter, signature), 1)
+            addExpectedItem(result, seen, namedArgumentItem(parameter, signature), 10)
         end
     end
 end
@@ -844,14 +1096,54 @@ local function hasArgumentCompletionItems(signature)
         or false
 end
 
-local function expectedEnumMembers(items, expectedType)
+local function mentionedEnumMemberLabels(bufnr, expectedType)
     local result = {}
     local seen = {}
+    local pattern = expectedType.shortName:gsub("([^%w])", "%%%1") .. "%.[_%a][_%w]*"
+
+    for label in currentArgumentTextBeforeCursor(bufnr):gmatch(pattern) do
+        if not seen[label] then
+            table.insert(result, label)
+            seen[label] = true
+        end
+    end
+
+    return result, seen
+end
+
+local function expectedEnumMembers(bufnr, items, expectedType, enumMemberNames)
+    local order = {}
+    local byLabel = {}
 
     for _, item in ipairs(items) do
-        if not seen[item.label] and isExpectedEnumMember(item, expectedType) then
-            table.insert(result, markExpectedItem(item))
-            seen[item.label] = true
+        if not byLabel[item.label] and isExpectedEnumMember(item, expectedType) then
+            byLabel[item.label] = item
+            table.insert(order, item.label)
+        end
+    end
+
+    for _, memberName in ipairs(enumMemberNames or {}) do
+        local item = syntheticEnumMemberItem(expectedType, memberName)
+        if item and not byLabel[item.label] then
+            byLabel[item.label] = item
+            table.insert(order, item.label)
+        end
+    end
+
+    local result = {}
+    local seen = {}
+    local mentionedOrder, mentionedSet = mentionedEnumMemberLabels(bufnr, expectedType)
+    for _, label in ipairs(mentionedOrder) do
+        local item = byLabel[label]
+        if item then
+            addExpectedItem(result, seen, item, 0)
+        end
+    end
+
+    for _, label in ipairs(order) do
+        local item = byLabel[label]
+        if item then
+            addExpectedItem(result, seen, item, mentionedSet[label] and 0 or 1)
         end
     end
 
@@ -912,7 +1204,7 @@ function source:complete(params, callback)
             return
         end
 
-        local expectedType = signature.activeParameter.expectedType
+        local expectedType = argumentExpectedType(bufnr, signature.activeParameter)
         local usedNamedArguments = namedArgumentsBeforeCursor(bufnr)
         if not expectedType then
             local result = {}
@@ -924,25 +1216,30 @@ function source:complete(params, callback)
 
         roslynCompletion(client, bufnr, params.completion_context, function(items)
             local localVariables = localVariableTypesBeforeCursor(bufnr)
-            local enumMembers = expectedEnumMembers(items, expectedType)
-            if #enumMembers > 0 then
-                local seen = {}
-                for _, item in ipairs(enumMembers) do
-                    seen[item.label] = true
-                end
-                for _, item in ipairs(items) do
-                    if not seen[item.label]
-                        and isCompatibleItem(item, expectedType, {}, localVariables)
-                    then
-                        addExpectedItem(enumMembers, seen, item)
-                    end
-                end
-                addNamedArgumentItems(enumMembers, seen, signature, usedNamedArguments)
-                finish(enumMembers)
-                return
-            end
-
             implementationInfo(self, client, bufnr, expectedType, function(info)
+                local completionEnumMembers = expectedEnumMembers(bufnr, items, expectedType)
+                local function finishEnumMembers(memberNames)
+                    local result = expectedEnumMembers(bufnr, items, expectedType, memberNames)
+                    local seen = {}
+                    for _, item in ipairs(result) do
+                        seen[item.label] = true
+                    end
+                    for _, item in ipairs(items) do
+                        if not seen[item.label]
+                            and isCompatibleItem(item, expectedType, {}, localVariables)
+                        then
+                            addExpectedItem(result, seen, item)
+                        end
+                    end
+                    addNamedArgumentItems(result, seen, signature, usedNamedArguments)
+                    finish(result)
+                end
+
+                if #completionEnumMembers > 0 or info.expectedSymbolKind == SYMBOL_KIND.Enum then
+                    enumMembersInfo(self, client, bufnr, expectedType, info, finishEnumMembers)
+                    return
+                end
+
                 local result = {}
                 local seen = {}
                 for _, item in ipairs(items) do
@@ -1002,6 +1299,7 @@ end
 
 function M.new()
     return setmetatable({
+        enumMemberCache = {},
         implementationCache = {},
     }, source)
 end
