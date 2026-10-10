@@ -135,7 +135,7 @@ end, {
     desc = "Toggle word wrap",
 })
 
-vim.keymap.set("n", "W", ":w<CR>",
+vim.keymap.set("n", "W", ":wa<CR>",
 {
     desc = "Save",
 })
