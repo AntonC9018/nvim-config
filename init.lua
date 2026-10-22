@@ -590,6 +590,12 @@ local plugins =
                     local Path = require("plenary.path")
                     local path = Path:new(node.absolute_path)
 
+                    if vim.fn.executable("explorer.exe") ~= 1 then
+                        local dir = path:is_dir() and node.absolute_path or path:parent():absolute()
+                        vim.fn.jobstart({ "xdg-open", dir }, { detach = true })
+                        return
+                    end
+
                     local dir, args
                     if path:is_dir() then
                         dir = node.absolute_path
@@ -614,7 +620,7 @@ local plugins =
                 set('<F2>', api.fs.rename_basename, "Rename")
                 set('s', api.fs.rename, "Rename (including extension)")
                 set('<2-LeftMouse>', api.node.open.edit, "Edit")
-                set('o', function() doExplorer("select") end, "Open in Explorer")
+                set('o', function() doExplorer("select") end, "Open in file manager")
                 set("y", api.fs.copy.node, "Copy")
                 set("x", api.fs.cut, "Cut")
                 set("p", api.fs.paste, "Paste")
