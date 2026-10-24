@@ -54,4 +54,7 @@ XDG_CACHE_HOME="$test_root/cache" \
 KEYBINDING_EXTERNAL_CAPTURE="$test_root/external-calls.txt" \
 KEYBINDING_GO_FIXTURE="$go_fixture" \
 KEYBINDING_DOTNET_FIXTURE="$dotnet_fixture" \
-nvim --headless -u "$PWD/init.lua" -c 'luafile tests/keybindings_smoke.lua' -c 'qa!'
+KEYBINDING_TEST_ROOT="$PWD" \
+nvim --headless -u "$PWD/init.lua" \
+    -c 'lua for _, file in ipairs({"keybindings_smoke.lua", "debug_build_smoke.lua", "roslyn_smoke.lua"}) do local ok, err = pcall(dofile, vim.env.KEYBINDING_TEST_ROOT .. "/tests/" .. file); if not ok then vim.api.nvim_err_writeln(tostring(err)); vim.cmd("cquit 1") end end' \
+    -c 'qa!'

@@ -19,4 +19,6 @@ The passing run on 2026-10-24 reported **300 distinct mode/key mappings: 33 acti
 
 The report marks a mapping presence-only when its mapping is installed but its behavior is not invoked in this suite. This includes insert/command-line editing variants, many modifier aliases, visual/operator variants, interactive quit/write actions, and language-server actions outside the Lua fixture. The printed inventory is the detailed list for the tested environment.
 
-Physical modifier delivery and GUI font changes require the interactive desktop and are covered by the parent’s Kitty checks. The configured C# language server executable `Microsoft.CodeAnalysis.LanguageServer` was absent from the supplied test `PATH`; .NET debugging itself passed. C/C++ and Zig debugger stepping are not covered here.
+Physical modifier delivery and GUI font changes require the interactive desktop and are covered by the parent’s Kitty checks. With the Nix-provided `Microsoft.CodeAnalysis.LanguageServer`, the configured Roslyn server initializes and attaches to a temporary C# project. C/C++ build callbacks are checked for debug symbols, disabled optimization and failed-build rejection; Zig is checked for actually running `zig build install` and rejecting failed builds. C/C++ and Zig debugger stepping are not covered here.
+
+The smoke runner exits nonzero on any Lua assertion failure, restores its working directory before removing fixtures, and never treats an error printed by Neovim followed by `qa!` as a passing test.

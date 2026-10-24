@@ -636,6 +636,7 @@ table.sort(presence_names)
 print("ACTION-TESTED MAPPINGS: " .. table.concat(tested_names, ", "))
 print("PRESENCE-ONLY MAPPINGS: " .. table.concat(presence_names, ", "))
 
+vim.cmd.cd(vim.fn.fnameescape(original_cwd))
 vim.fn.delete(fixture_dir, "rf")
 print("PASS: full-user startup and all fixture-backed smoke actions above.")
 print("CONTEXTUAL MANUAL CHECKS: GUI font selection, terminal physical modifier delivery, interactive Quit/Write mappings, and environment-specific Roslyn/C#/TypeScript servers are not emulated by this headless fixture suite.")

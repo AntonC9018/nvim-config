@@ -2445,6 +2445,13 @@ table.insert(plugins,
 
         local path = require("utils.path")
 
+        local function buildForDebug(command, cwd)
+            local result = vim.system(command, { cwd = cwd, text = true }):wait()
+            if result.code ~= 0 then
+                error("Debug build failed: " .. (result.stderr or result.stdout or "unknown error"))
+            end
+        end
+
         local function cConfigs(compiler)
             local program = function()
                 local currentFile = vim.api.nvim_buf_get_name(0)
@@ -2455,12 +2462,8 @@ table.insert(plugins,
                 local extension = helper.isWindows() and ".exe" or nil
                 local outputFile = path.withExtension(currentFile, extension)
 
-                -- compile
-                vim.fn.system(
-                    "cd " .. vim.fn.shellescape(currentFileFolder)
-                    .. "; " .. compiler .. " -Wall -Werror -Wconversion -o "
-                    .. vim.fn.shellescape(outputFile)
-                    .. " " .. vim.fn.shellescape(currentFile))
+                buildForDebug({ compiler, "-g", "-O0", "-Wall", "-Werror", "-Wconversion",
+                    "-o", outputFile, currentFile }, currentFileFolder)
 
                 -- execute
                 return outputFile
@@ -2483,11 +2486,11 @@ table.insert(plugins,
             name = "Zig run",
             type = "lldb",
             request = "launch",
-            preLauchTask = "zig build install",
             stopOnEntry = false,
             program = function()
                 -- find the first executable file in zig-out/bin
                 local workspaceDir = vim.fn.getcwd()
+                buildForDebug({ "zig", "build", "install" }, workspaceDir)
                 local outputPath = path.join(workspaceDir, "zig-out", "bin")
                 local dir = vim.loop.fs_scandir(outputPath)
                 if not dir then
