@@ -14,8 +14,8 @@ vim.opt.expandtab = true
 vim.opt.completeopt:remove("preview")
 
 vim.o.mouse = 'a'
--- Terminal mouse reporting bypasses Kitty's scrollback multiplier.
-vim.opt.mousescroll = { 'ver:12', 'hor:6' }
+-- Touchpads arrive as repeated wheel events: keep each step to one line.
+vim.opt.mousescroll = { 'ver:1', 'hor:1' }
 
 vim.o.scrolloff = 5
 vim.o.relativenumber = true
