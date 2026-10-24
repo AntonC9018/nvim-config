@@ -15,7 +15,7 @@ vim.opt.completeopt:remove("preview")
 
 vim.o.mouse = 'a'
 -- Wheel and touchpad reports share the same vertical step in terminals.
-vim.opt.mousescroll = { 'ver:3', 'hor:1' }
+vim.opt.mousescroll = { 'ver:2', 'hor:1' }
 
 vim.o.scrolloff = 5
 vim.o.relativenumber = true
