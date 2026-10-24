@@ -218,6 +218,23 @@ local trouble_closed = vim.wait(3000, function()
     return true
 end, 20)
 if not trouble_closed then fail("wd did not close the diagnostics panel") end
+feed(" wd")
+local leader_trouble_open = vim.wait(3000, function()
+    for _, winid in ipairs(vim.api.nvim_list_wins()) do
+        if vim.bo[vim.api.nvim_win_get_buf(winid)].filetype == "trouble" then return true end
+    end
+    return false
+end, 20)
+if not leader_trouble_open then fail("<leader>wd did not open the diagnostics panel") end
+mark_action_tested("n", "<leader>wd")
+feed(" wd")
+local leader_trouble_closed = vim.wait(3000, function()
+    for _, winid in ipairs(vim.api.nvim_list_wins()) do
+        if vim.bo[vim.api.nvim_win_get_buf(winid)].filetype == "trouble" then return false end
+    end
+    return true
+end, 20)
+if not leader_trouble_closed then fail("<leader>wd did not close the diagnostics panel") end
 vim.diagnostic.reset(trouble_namespace)
 
 -- Workspace diagnostic navigation consumes fixture diagnostics without an
@@ -512,7 +529,9 @@ local function run_picker_mapping(lhs, query, expected)
         end
         return false
     end, 20)
-    if not result_found then fail(lhs .. " did not return fixture match " .. expected) end
+    if not result_found then
+        fail(lhs .. " did not return fixture match " .. expected)
+    end
     require("telescope.actions").close(prompt_bufnr)
     mark_action_tested("n", lhs)
 end
@@ -526,6 +545,18 @@ run_picker_mapping("wF", needle, needle)
 vim.api.nvim_win_set_cursor(0, { 2, 0 })
 run_picker_mapping("w*", nil, needle)
 run_picker_mapping("wp", "keybinding-fixture", "keybinding-fixture.txt")
+run_picker_mapping("wy", nil, "keybinding-fixture")
+
+-- Bufferize the test's own message into a temporary buffer and close it.
+print("keybinding bufferize fixture marker")
+feed("wm")
+local bufferized_message = vim.wait(1000, function()
+    local current_text = table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), "\n")
+    return current_text:find("keybinding bufferize fixture marker", 1, true) ~= nil
+end, 10)
+if not bufferized_message then fail("wm did not show the fixture message in a buffer") end
+mark_action_tested("n", "wm")
+vim.cmd("quit")
 
 -- Run the system clipboard mappings through an in-memory provider so the
 -- actual mappings and register path are exercised without touching the OS.
@@ -663,6 +694,15 @@ for _, case in ipairs(normal_clipboard_cases) do
     end
     mark_action_tested("n", case.lhs)
 end
+
+clipboard_payload = { "replacement" }
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { "old word" })
+vim.api.nvim_win_set_cursor(0, { 1, 0 })
+feed(" griw")
+if vim.api.nvim_get_current_line() ~= "replacement word" then
+    fail("<leader>gr did not replace the fixture word from the isolated clipboard")
+end
+mark_action_tested("n", "<leader>gr")
 vim.g.clipboard = old_clipboard
 
 -- Exercise the exchange operator and visual mappings on scratch lines. Each
