@@ -593,6 +593,8 @@ vim.api.nvim_win_set_cursor(0, { 2, 0 })
 run_picker_mapping("w*", nil, needle)
 run_picker_mapping("wp", "keybinding-fixture", "keybinding-fixture.txt")
 run_picker_mapping("wy", nil, "keybinding-fixture")
+run_picker_mapping("wh", "help", "help")
+run_picker_mapping("wk", "wh", "wh")
 
 -- Bufferize the test's own message into a temporary buffer and close it.
 print("keybinding bufferize fixture marker")
@@ -1070,6 +1072,45 @@ feed("Q")
 if vim.api.nvim_win_is_valid(quit_win) then fail("Q did not close the disposable fixture window") end
 mark_action_tested("n", "Q")
 
+-- wF must seed the directory-scoped grep with the actual visual selection.
+-- Feed a real characterwise selection through the mapping and inspect both
+-- Telescope's prompt and its live results; calling the callback directly would
+-- miss visual-mode exit and endpoint handling.
+local visual_search_term = "visual_selection_search_fixture_4c82"
+local visual_search_fixture_path = fixture_dir .. "/visual-search-fixture.txt"
+vim.fn.writefile({ "prefix " .. visual_search_term .. " suffix" }, visual_search_fixture_path)
+vim.cmd.edit(vim.fn.fnameescape(visual_search_fixture_path))
+vim.api.nvim_win_set_cursor(0, { 1, 7 })
+feed("v" .. string.rep("l", #visual_search_term - 1) .. "wF")
+local visual_prompt_bufnr
+local visual_picker_ready = vim.wait(5000, function()
+    for _, bufnr in ipairs(telescope_state.get_existing_prompt_bufnrs()) do
+        if telescope_state.get_status(bufnr).picker then
+            visual_prompt_bufnr = bufnr
+            return true
+        end
+    end
+    return false
+end, 20)
+if not visual_picker_ready then fail("visual wF did not open a Telescope picker") end
+local visual_picker = telescope_state.get_status(visual_prompt_bufnr).picker
+local visual_prompt = require("telescope.actions.state").get_current_line()
+if visual_prompt ~= visual_search_term then
+    fail("visual wF searched for " .. vim.inspect(visual_prompt) .. " instead of the selected text")
+end
+local visual_result_found = vim.wait(5000, function()
+    if not visual_picker.manager then return false end
+    for entry in visual_picker.manager:iter() do
+        local text = table.concat({ tostring(entry.ordinal or ""), tostring(entry.display or "") }, " ")
+        if text:find(visual_search_term, 1, true) then return true end
+    end
+    return false
+end, 20)
+if not visual_result_found then fail("visual wF did not return the selected fixture text") end
+require("telescope.actions").close(visual_prompt_bufnr)
+mark_action_tested("v", "wF")
+mark_action_tested("x", "wF")
+
 local source_by_sid = {}
 for _, script in ipairs(vim.fn.getscriptinfo()) do source_by_sid[script.sid] = script.name end
 local covered = {}
@@ -1123,7 +1164,9 @@ print("PRESENCE-ONLY MAPPINGS: " .. table.concat(presence_names, ", "))
 
 vim.cmd.cd(vim.fn.fnameescape(original_cwd))
 vim.cmd.enew()
+local visual_search_bufnr = vim.fn.bufnr(visual_search_fixture_path)
+if visual_search_bufnr ~= -1 then vim.cmd("bwipeout " .. visual_search_bufnr) end
 vim.cmd("bwipeout " .. write_fixture_bufnr)
 vim.fn.delete(fixture_dir, "rf")
 print("PASS: full-user startup and all fixture-backed smoke actions above.")
-print("CONTEXTUAL MANUAL CHECKS: GUI font selection, terminal physical modifier delivery, modified-buffer quit prompts, final-window quit behavior, command-line editing mappings, and environment-specific C#/TypeScript language servers are not emulated by this headless fixture suite.")
+print("CONTEXTUAL MANUAL CHECKS: GUI font selection, terminal physical modifier delivery, wc command-history window, modified-buffer quit prompts, final-window quit behavior, and environment-specific C#/TypeScript language servers outside the Lua fixture are not emulated by this headless fixture suite.")
