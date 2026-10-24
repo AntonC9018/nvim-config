@@ -32,7 +32,7 @@ local plugins =
 {
     {
         'nvim-telescope/telescope-fzf-native.nvim',
-        build = 'cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -S. -Bbuild -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release && cmake --install build --prefix build'
+        build = 'cmake -S. -Bbuild -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release --parallel 1'
     },
     {
         "nvim-treesitter/nvim-treesitter",
@@ -137,7 +137,7 @@ local plugins =
         },
     },
     {
-        -- NOTE: Requires `brew install ripgrep`
+        -- Requires ripgrep (`rg`) for live_grep and fast file search.
         "nvim-telescope/telescope.nvim",
         branch = "master",
         dependencies =
@@ -145,7 +145,7 @@ local plugins =
             "nvim-lua/plenary.nvim",
             "nvim-treesitter/nvim-treesitter",
             "nvim-tree/nvim-web-devicons",
-            -- 'MunifTanjim/nui.nvim',
+            'MunifTanjim/nui.nvim',
             'jonarrien/telescope-cmdline.nvim',
         },
         config = function()
@@ -367,7 +367,13 @@ local plugins =
             })
 
             telescope.load_extension('cmdline')
-            telescope.load_extension('fzf')
+            local fzf_loaded = pcall(telescope.load_extension, 'fzf')
+            if not fzf_loaded then
+                vim.notify(
+                    "Telescope's fzf-native build is unavailable; using the built-in sorter. Run :Lazy build telescope-fzf-native.nvim to enable it.",
+                    vim.log.levels.WARN
+                )
+            end
 
             local builtin = require("telescope.builtin")
             local utils = require("telescope.utils")
@@ -702,6 +708,10 @@ local plugins =
                 diagnostics = {
                     enable = false,
                 },
+                -- nvim-tree's FileExplorer autocmd cleanup emits E216 on
+                -- current Neovim versions. The tree remains available through
+                -- its commands and mappings without hijacking netrw.
+                hijack_netrw = false,
                 hijack_cursor = true,
                 ui = {
                     confirm = {
@@ -2220,7 +2230,6 @@ end
 table.insert(plugins,
 {
     "mbbill/undotree",
-    enabled = false,
     init = function()
         vim.keymap.set("n", "<leader>hd", ":UndotreeToggle<CR>")
     end,
@@ -2406,23 +2415,42 @@ table.insert(plugins,
     config = function(_)
         local dap = require("dap")
 
+        local function findExecutable(names)
+            for _, name in ipairs(names) do
+                local path = vim.fn.exepath(name)
+                if path ~= "" then return path end
+            end
+            return names[1]
+        end
+
         ---@diagnostic disable-next-line: undefined-field
         dap.adapters.lldb =
         {
             type = "executable",
-            command = "lldb-vscode-14",
+            command = findExecutable({ "lldb-dap", "lldb-vscode" }),
             name = "lldb",
         }
 
-        ---@diagnostic disable-next-line: undefined-field
-        dap.adapters.cppvsdbg =
-        {
+        local coreclr_command
+        if helper.isWindows() then
+            coreclr_command = findExecutable({ "vsdbg", "netcoredbg" })
+        else
+            coreclr_command = findExecutable({ "netcoredbg", "vsdbg" })
+        end
+        dap.adapters.coreclr = {
             type = "executable",
-            command = "vsdbg",
-            name = "cppvsdbg",
+            command = coreclr_command,
+            args = { "--interpreter=vscode" },
         }
 
         local path = require("utils.path")
+
+        local function buildForDebug(command, cwd)
+            local result = vim.system(command, { cwd = cwd, text = true }):wait()
+            if result.code ~= 0 then
+                error("Debug build failed: " .. (result.stderr or result.stdout or "unknown error"))
+            end
+        end
 
         local function cConfigs(compiler)
             local program = function()
@@ -2434,12 +2462,8 @@ table.insert(plugins,
                 local extension = helper.isWindows() and ".exe" or nil
                 local outputFile = path.withExtension(currentFile, extension)
 
-                -- compile
-                vim.fn.system(
-                    "cd " .. vim.fn.shellescape(currentFileFolder)
-                    .. "; " .. compiler .. " -Wall -Werror -Wconversion -o "
-                    .. vim.fn.shellescape(outputFile)
-                    .. " " .. vim.fn.shellescape(currentFile))
+                buildForDebug({ compiler, "-g", "-O0", "-Wall", "-Werror", "-Wconversion",
+                    "-o", outputFile, currentFile }, currentFileFolder)
 
                 -- execute
                 return outputFile
@@ -2462,11 +2486,11 @@ table.insert(plugins,
             name = "Zig run",
             type = "lldb",
             request = "launch",
-            preLauchTask = "zig build install",
             stopOnEntry = false,
             program = function()
                 -- find the first executable file in zig-out/bin
                 local workspaceDir = vim.fn.getcwd()
+                buildForDebug({ "zig", "build", "install" }, workspaceDir)
                 local outputPath = path.join(workspaceDir, "zig-out", "bin")
                 local dir = vim.loop.fs_scandir(outputPath)
                 if not dir then
@@ -2494,12 +2518,28 @@ table.insert(plugins,
             end,
         }}
 
-        dap.adapters.go = {
-            type = "executable",
-            command = "node",
-            args = { vim.fn.stdpath("data") .. "/mason/bin/go-debug-adapter" },
+        local delve_path = vim.fn.exepath("dlv")
+        local mason_delve_path = vim.fn.stdpath("data") .. "/mason/bin/dlv"
+        if delve_path == "" and vim.fn.executable(mason_delve_path) == 1 then
+            delve_path = mason_delve_path
+        end
+        require("dap-go").setup({
+            delve = {
+                path = delve_path ~= "" and delve_path or "dlv",
+            },
+        })
+
+        dap.configurations.cs = {
+            {
+                type = "coreclr",
+                name = "Launch .NET assembly",
+                request = "launch",
+                program = function()
+                    return vim.fn.input("Path to .NET assembly: ", vim.fn.getcwd() .. "/", "file")
+                end,
+                cwd = "${workspaceFolder}",
+            },
         }
-        require("dap-go").setup()
 
         do
             local vscode = require("dap.ext.vscode")
