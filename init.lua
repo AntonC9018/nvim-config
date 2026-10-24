@@ -32,7 +32,7 @@ local plugins =
 {
     {
         'nvim-telescope/telescope-fzf-native.nvim',
-        build = 'cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -S. -Bbuild -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release && cmake --install build --prefix build'
+        build = 'cmake -S. -Bbuild -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release --parallel 1'
     },
     {
         "nvim-treesitter/nvim-treesitter",
@@ -137,7 +137,7 @@ local plugins =
         },
     },
     {
-        -- NOTE: Requires `brew install ripgrep`
+        -- Requires ripgrep (`rg`) for live_grep and fast file search.
         "nvim-telescope/telescope.nvim",
         branch = "master",
         dependencies =
@@ -145,7 +145,7 @@ local plugins =
             "nvim-lua/plenary.nvim",
             "nvim-treesitter/nvim-treesitter",
             "nvim-tree/nvim-web-devicons",
-            -- 'MunifTanjim/nui.nvim',
+            'MunifTanjim/nui.nvim',
             'jonarrien/telescope-cmdline.nvim',
         },
         config = function()
@@ -367,7 +367,13 @@ local plugins =
             })
 
             telescope.load_extension('cmdline')
-            telescope.load_extension('fzf')
+            local fzf_loaded = pcall(telescope.load_extension, 'fzf')
+            if not fzf_loaded then
+                vim.notify(
+                    "Telescope's fzf-native build is unavailable; using the built-in sorter. Run :Lazy build telescope-fzf-native.nvim to enable it.",
+                    vim.log.levels.WARN
+                )
+            end
 
             local builtin = require("telescope.builtin")
             local utils = require("telescope.utils")
@@ -702,6 +708,10 @@ local plugins =
                 diagnostics = {
                     enable = false,
                 },
+                -- nvim-tree's FileExplorer autocmd cleanup emits E216 on
+                -- current Neovim versions. The tree remains available through
+                -- its commands and mappings without hijacking netrw.
+                hijack_netrw = false,
                 hijack_cursor = true,
                 ui = {
                     confirm = {
@@ -2220,7 +2230,6 @@ end
 table.insert(plugins,
 {
     "mbbill/undotree",
-    enabled = false,
     init = function()
         vim.keymap.set("n", "<leader>hd", ":UndotreeToggle<CR>")
     end,
@@ -2406,21 +2415,31 @@ table.insert(plugins,
     config = function(_)
         local dap = require("dap")
 
+        local function findExecutable(names)
+            for _, name in ipairs(names) do
+                local path = vim.fn.exepath(name)
+                if path ~= "" then return path end
+            end
+            return names[1]
+        end
+
         ---@diagnostic disable-next-line: undefined-field
         dap.adapters.lldb =
         {
             type = "executable",
-            command = "lldb-vscode-14",
+            command = findExecutable({ "lldb-dap", "lldb-vscode" }),
             name = "lldb",
         }
 
-        ---@diagnostic disable-next-line: undefined-field
-        dap.adapters.cppvsdbg =
-        {
-            type = "executable",
-            command = "vsdbg",
-            name = "cppvsdbg",
-        }
+        if helper.isWindows() then
+            ---@diagnostic disable-next-line: undefined-field
+            dap.adapters.cppvsdbg =
+            {
+                type = "executable",
+                command = "vsdbg",
+                name = "cppvsdbg",
+            }
+        end
 
         local path = require("utils.path")
 
