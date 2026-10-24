@@ -185,7 +185,17 @@ end)
 -- Regular text editing commands
 vim.keymap.set({ "i", "c" }, "<C-h>", "<C-w>")
 vim.keymap.set({ "i", "c" }, "<C-BS>", "<C-w>")
-vim.keymap.set({ "i", "c" }, "<C-del>", "<C-o>de")
+vim.keymap.set("i", "<C-del>", "<C-o>de")
+vim.keymap.set("c", "<C-del>", function()
+    local commandLine = vim.fn.getcmdline()
+    local cursor = vim.fn.getcmdpos()
+    local remaining = commandLine:sub(cursor)
+    local toDelete = remaining:match("^%s*%S+") or remaining:match("^%s+") or ""
+    if toDelete ~= "" then
+        vim.fn.setcmdline(commandLine:sub(1, cursor - 1) .. commandLine:sub(cursor + #toDelete), cursor)
+    end
+    return ""
+end, { expr = true })
 vim.keymap.set({ "i" }, "<C-z>", "<C-o>u")
 vim.keymap.set({ "i" }, "<C-y>", "<C-o><C-r>")
 
@@ -249,9 +259,12 @@ end, {
 })
 -- A similar binding for insert mode that executes the selected lines
 vim.keymap.set("v", "<leader>x", function()
+    local firstLine = vim.fn.line("v")
+    local lastLine = vim.fn.line(".")
+    if firstLine > lastLine then firstLine, lastLine = lastLine, firstLine end
     vim.api.nvim_input("<Esc>")
     vim.schedule(function()
-        vim.cmd(helper.visualRange() .. "lua")
+        vim.cmd(string.format("%d,%dlua", firstLine, lastLine))
         print("Reloaded")
     end)
 end, {

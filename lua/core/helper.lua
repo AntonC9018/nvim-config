@@ -25,10 +25,6 @@ function helper.lastTextChange()
     return '`[v`]'
 end
 
-function helper.visualRange()
-    return "'<,'>"
-end
-
 function helper.modifyKey(modifier, key)
     return "<" .. modifier .. "-" .. key .. ">"
 end
@@ -141,10 +137,8 @@ end
 
 --- NOTE: Must be used inside a vim.schedule if executing inside bindings in order to cancel the visual mode.
 --- @param lineMode boolean Whether to trim the first and last lines to selection
-local function getVisualSelectionLines(lineMode)
+local function getVisualSelectionLines(lineMode, start_pos, end_pos)
     local bufnr = vim.api.nvim_get_current_buf()
-    local start_pos = vim.fn.getpos("'<")
-    local end_pos = vim.fn.getpos("'>")
     local start_line = start_pos[2] - 1
     local end_line = end_pos[2] - 1
     local lines = vim.api.nvim_buf_get_lines(bufnr, start_line, end_line + 1, false)
@@ -193,13 +187,19 @@ function helper.cancelSelectionAndExecuteWithSelection(opts)
         lineMode = true
     end
 
+    local start_pos = vim.fn.getpos("v")
+    local end_pos = vim.fn.getpos(".")
+    if start_pos[2] > end_pos[2] or (start_pos[2] == end_pos[2] and start_pos[3] > end_pos[3]) then
+        start_pos, end_pos = end_pos, start_pos
+    end
+
     -- Exit visual mode
     vim.api.nvim_input("<Esc>")
     -- This is required so that the exiting gets processed.
     vim.schedule(function()
         -- LuaDoc can't even determite it can't be nil here.
         ---@diagnostic disable-next-line: param-type-mismatch
-        local selection = getVisualSelectionLines(lineMode)
+        local selection = getVisualSelectionLines(lineMode, start_pos, end_pos)
         opts.func(selection)
     end)
 end
