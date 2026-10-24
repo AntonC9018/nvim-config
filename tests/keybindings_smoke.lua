@@ -180,6 +180,55 @@ feed("wo")
 if #vim.api.nvim_list_wins() ~= 1 then fail("wo did not close other fixture windows") end
 mark_action_tested("n", "wo")
 
+-- Exercise the insert-mode word-editing aliases against scratch buffers. Each
+-- key is fed through Neovim's mapping resolver; no external clipboard or file
+-- is involved.
+local function insert_case(lhs, initial, cursor_col, keys, expected, label, entry)
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { initial })
+    vim.api.nvim_win_set_cursor(0, { 1, cursor_col })
+    feed((entry or "i") .. keys .. "<Esc>")
+    local actual = vim.api.nvim_get_current_line()
+    if actual ~= expected then
+        fail(label .. " produced " .. vim.inspect(actual) .. ", expected " .. vim.inspect(expected))
+    end
+    mark_action_tested("i", lhs)
+end
+
+insert_case("<C-h>", "alpha beta", 9, "<C-h>X", "alpha X", "insert <C-h>", "A")
+insert_case("<C-BS>", "alpha beta", 9, "<C-BS>X", "alpha X", "insert <C-BS>", "A")
+insert_case("<C-Del>", "alpha beta", 0, "<C-Del>X", "X beta", "insert <C-Del>")
+insert_case("<C-z>", "base", 0, "X<C-z>", "base", "insert <C-z> undo", "A")
+insert_case("<C-y>", "base", 0, "X<C-z><C-y>", "baseX", "insert <C-y> redo", "A")
+
+-- Exercise the visual indent mappings on disposable text. The selection is
+-- restored by the mappings' last-change motion, then explicitly exited.
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { "first", "second" })
+vim.api.nvim_win_set_cursor(0, { 1, 0 })
+feed("Vj>")
+if vim.api.nvim_buf_get_lines(0, 0, -1, false)[1] ~= "    first" then
+    fail("visual > did not indent the selected fixture lines")
+end
+mark_action_tested("x", ">")
+feed("<Esc>")
+vim.api.nvim_win_set_cursor(0, { 1, 0 })
+feed("Vj<")
+if vim.api.nvim_buf_get_lines(0, 0, -1, false)[1] ~= "first" then
+    fail("visual < did not unindent the selected fixture lines")
+end
+mark_action_tested("x", "<")
+feed("<Esc>")
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { "    first", "        second" })
+vim.api.nvim_win_set_cursor(0, { 1, 0 })
+feed("Vj=")
+local equal_lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+if equal_lines[1] ~= "first" or equal_lines[2] ~= "second" then
+    fail("visual = produced " .. vim.inspect(equal_lines))
+end
+mark_action_tested("x", "=")
+feed("<Esc>")
+
+vim.cmd("cd " .. vim.fn.fnameescape(fixture_dir))
+
 -- Start the configured Lua language server on a temporary source file, then
 -- exercise its real initialize, hover and rename requests through the bound
 -- buffer actions. The resulting edits and undo are confined to the fixture.
@@ -585,6 +634,25 @@ end
 
 -- Inventory global mappings from the config sources and the explicit
 -- buffer-local mappings checked above, separating actions from presence.
+-- W writes only a temporary fixture. Q closes a disposable split while
+-- leaving the main test window alive. Keep these at the end because :wa also
+-- writes other modified temporary buffers exercised above.
+local write_fixture_path = fixture_dir .. "/write-binding.txt"
+vim.cmd("enew")
+vim.cmd("file " .. vim.fn.fnameescape(write_fixture_path))
+local write_fixture_bufnr = vim.api.nvim_get_current_buf()
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { "write mapping fixture" })
+feed("W")
+local written_lines = vim.fn.readfile(write_fixture_path)
+if written_lines[1] ~= "write mapping fixture" then fail("W did not write the temporary fixture") end
+mark_action_tested("n", "W")
+
+vim.cmd("vsplit")
+local quit_win = vim.api.nvim_get_current_win()
+feed("Q")
+if vim.api.nvim_win_is_valid(quit_win) then fail("Q did not close the disposable fixture window") end
+mark_action_tested("n", "Q")
+
 local source_by_sid = {}
 for _, script in ipairs(vim.fn.getscriptinfo()) do source_by_sid[script.sid] = script.name end
 local covered = {}
@@ -637,6 +705,8 @@ print("ACTION-TESTED MAPPINGS: " .. table.concat(tested_names, ", "))
 print("PRESENCE-ONLY MAPPINGS: " .. table.concat(presence_names, ", "))
 
 vim.cmd.cd(vim.fn.fnameescape(original_cwd))
+vim.cmd.enew()
+vim.cmd("bwipeout " .. write_fixture_bufnr)
 vim.fn.delete(fixture_dir, "rf")
 print("PASS: full-user startup and all fixture-backed smoke actions above.")
-print("CONTEXTUAL MANUAL CHECKS: GUI font selection, terminal physical modifier delivery, interactive Quit/Write mappings, and environment-specific Roslyn/C#/TypeScript servers are not emulated by this headless fixture suite.")
+print("CONTEXTUAL MANUAL CHECKS: GUI font selection, terminal physical modifier delivery, modified-buffer quit prompts, final-window quit behavior, command-line editing mappings, and environment-specific C#/TypeScript language servers are not emulated by this headless fixture suite.")
