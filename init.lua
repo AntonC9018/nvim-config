@@ -2431,15 +2431,17 @@ table.insert(plugins,
             name = "lldb",
         }
 
+        local coreclr_command
         if helper.isWindows() then
-            ---@diagnostic disable-next-line: undefined-field
-            dap.adapters.cppvsdbg =
-            {
-                type = "executable",
-                command = "vsdbg",
-                name = "cppvsdbg",
-            }
+            coreclr_command = findExecutable({ "vsdbg", "netcoredbg" })
+        else
+            coreclr_command = findExecutable({ "netcoredbg", "vsdbg" })
         end
+        dap.adapters.coreclr = {
+            type = "executable",
+            command = coreclr_command,
+            args = { "--interpreter=vscode" },
+        }
 
         local path = require("utils.path")
 
@@ -2513,12 +2515,28 @@ table.insert(plugins,
             end,
         }}
 
-        dap.adapters.go = {
-            type = "executable",
-            command = "node",
-            args = { vim.fn.stdpath("data") .. "/mason/bin/go-debug-adapter" },
+        local delve_path = vim.fn.exepath("dlv")
+        local mason_delve_path = vim.fn.stdpath("data") .. "/mason/bin/dlv"
+        if delve_path == "" and vim.fn.executable(mason_delve_path) == 1 then
+            delve_path = mason_delve_path
+        end
+        require("dap-go").setup({
+            delve = {
+                path = delve_path ~= "" and delve_path or "dlv",
+            },
+        })
+
+        dap.configurations.cs = {
+            {
+                type = "coreclr",
+                name = "Launch .NET assembly",
+                request = "launch",
+                program = function()
+                    return vim.fn.input("Path to .NET assembly: ", vim.fn.getcwd() .. "/", "file")
+                end,
+                cwd = "${workspaceFolder}",
+            },
         }
-        require("dap-go").setup()
 
         do
             local vscode = require("dap.ext.vscode")
