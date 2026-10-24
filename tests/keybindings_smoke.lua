@@ -4,9 +4,19 @@ end
 
 local action_tested_mappings = {}
 local mapping_presence = {}
+local mapping_labels = {}
 
 local function normalize_lhs(lhs)
-    return lhs:gsub("<leader>", " "):lower()
+    lhs = lhs:gsub("<[lL][eE][aA][dD][eE][rR]>", vim.g.mapleader or " ")
+    return vim.api.nvim_replace_termcodes(lhs, true, false, true)
+end
+
+local function display_lhs(lhs)
+    local leader = vim.g.mapleader or " "
+    if lhs:sub(1, #leader) == leader then
+        return "<leader>" .. lhs:sub(#leader + 1)
+    end
+    return lhs
 end
 
 local function lookup_mapping(mode, lhs, bufnr)
@@ -23,12 +33,15 @@ local function mark_action_tested(mode, lhs)
     local id = mode .. ":" .. normalize_lhs(lhs)
     action_tested_mappings[id] = true
     mapping_presence[id] = true
+    mapping_labels[id] = display_lhs(lhs)
 end
 
 local function assert_mapping(mode, lhs)
     local mapping = lookup_mapping(mode, lhs)
     if mapping then
-        mapping_presence[mode .. ":" .. normalize_lhs(lhs)] = true
+        local id = mode .. ":" .. normalize_lhs(lhs)
+        mapping_presence[id] = true
+        mapping_labels[id] = mapping_labels[id] or display_lhs(mapping.lhs)
         return mapping
     end
     fail(string.format("missing %s-mode mapping %q", mode, lhs))
@@ -37,7 +50,9 @@ end
 local function assert_buffer_mapping(bufnr, mode, lhs)
     local mapping = lookup_mapping(mode, lhs, bufnr)
     if mapping then
-        mapping_presence[mode .. ":" .. normalize_lhs(lhs)] = true
+        local id = mode .. ":" .. normalize_lhs(lhs)
+        mapping_presence[id] = true
+        mapping_labels[id] = mapping_labels[id] or display_lhs(mapping.lhs)
         return mapping
     end
     fail(string.format("missing buffer %d %s-mode mapping %q", bufnr, mode, lhs))
@@ -580,6 +595,7 @@ for _, mode in ipairs(modes) do
         local source = source_by_sid[mapping.sid]
         if source and (source:match("/init%.lua$") or source:match("/lua/core/mappings%.lua$")) then
             local id = mode .. ":" .. normalize_lhs(mapping.lhs)
+            mapping_labels[id] = mapping_labels[id] or display_lhs(mapping.lhs)
             if not covered[id] then
                 covered[id] = true
                 if action_tested_mappings[id] then tested_count = tested_count + 1 else presence_count = presence_count + 1 end
@@ -593,6 +609,7 @@ for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
             local source = source_by_sid[mapping.sid]
             if source and source:match("/init%.lua$") then
                 local id = mode .. ":" .. normalize_lhs(mapping.lhs)
+                mapping_labels[id] = mapping_labels[id] or display_lhs(mapping.lhs)
                 if not covered[id] then
                     covered[id] = true
                     if action_tested_mappings[id] then tested_count = tested_count + 1 else presence_count = presence_count + 1 end
@@ -610,7 +627,9 @@ end
 print(string.format("MAPPING COVERAGE: %d action-tested, %d presence-only configured mappings", tested_count, presence_count))
 local tested_names, presence_names = {}, {}
 for id in pairs(covered) do
-    if action_tested_mappings[id] then table.insert(tested_names, id) else table.insert(presence_names, id) end
+    local mode = id:match("^(.-):")
+    local name = mode .. ":" .. (mapping_labels[id] or "<termcode>")
+    if action_tested_mappings[id] then table.insert(tested_names, name) else table.insert(presence_names, name) end
 end
 table.sort(tested_names)
 table.sort(presence_names)
