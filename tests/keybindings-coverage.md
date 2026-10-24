@@ -2,7 +2,7 @@
 
 Run `make test` from the repository root. `tests/run_keybindings_smoke.sh` launches the full user configuration with isolated Neovim state, fixture files, a temporary Git repository, and fake external opener commands. It uses the inherited `PATH`; prebuilt debug fixtures can be supplied through `KEYBINDING_GO_FIXTURE` and `KEYBINDING_DOTNET_FIXTURE`. If those are unset and the relevant tools are available, fixture builds write outputs and intermediate files under a temporary directory.
 
-The passing run on 2026-10-24 reported **302 distinct mode/key mappings: 86 action-tested and 216 presence-only**. The smoke test prints the complete case-sensitive inventory and its current counts on every run, so platform-specific mappings remain visible.
+The passing run on 2026-10-24 reported **302 distinct mode/key mappings: 90 action-tested and 212 presence-only**. The smoke test prints the complete case-sensitive inventory and its current counts on every run, so platform-specific mappings remain visible.
 
 ## Actions exercised
 
@@ -13,7 +13,7 @@ The passing run on 2026-10-24 reported **302 distinct mode/key mappings: 86 acti
 - Operator actions: `gr`/`grr` substitute fixture text, `cx`/`cxx` exchange words and lines, visual `X` exchanges selected words, and `Xs` cancels a pending exchange.
 - Telescope: `wf`, `wF`, `w*`, `wp`, and `wy` return or resume matches from a temporary search fixture. `wf` is checked against the compiled `telescope-fzf-native` sorter.
 - Bufferize: `wm` displays a test-generated message in a temporary buffer, which the test then closes.
-- NvimTree: `we` and `wE` open the tree; `<F2>` renames and `D` deletes only a temporary file; `o` passes the fixture directory to an isolated file-manager shim. All explicitly configured NvimTree bindings are inventoried for presence.
+- NvimTree: `we` and `wE` open the tree; `q` closes it, `<CR>` opens the fixture file, `h`/`l` collapse and expand a nested fixture directory, `<F2>` renames and `D` deletes only a temporary file, and `o` passes the fixture directory to an isolated file-manager shim. Remaining NvimTree defaults are inventoried for presence.
 - Undotree: `<leader>hd` opens and closes the panel.
 - Fugitive: `<leader>gb` opens blame, `<leader>gd` opens a fixture diff, and `<leader>go` produces the expected GitHub URL.
 - LSP: Lua language server initialization, `<M-i>` hover, `<F2>` rename, and undo of the fixture rename.

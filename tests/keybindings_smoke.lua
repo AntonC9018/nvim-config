@@ -121,6 +121,9 @@ vim.fn.mkdir(fixture_dir, "p")
 local fixture_path = fixture_dir .. "/keybinding-fixture.txt"
 local needle = "nvim_keybinding_smoke_fixture_7d31"
 vim.fn.writefile({ "fixture line", needle .. " searchable text" }, fixture_path)
+local nested_tree_dir = fixture_dir .. "/nested-fixture"
+vim.fn.mkdir(nested_tree_dir, "p")
+vim.fn.writefile({ "nested tree action fixture" }, nested_tree_dir .. "/nested-entry.txt")
 local lsp_fixture_path = fixture_dir .. "/lsp-smoke.lua"
 local old_symbol = "fixtureRenameTarget"
 local new_symbol = "fixtureRenamedTarget"
@@ -448,7 +451,7 @@ if not rename_undo_complete then fail("undo did not reverse the fixture LSP rena
 
 -- Exercise both file-tree entry points against the temporary fixture, then
 -- close the tree so no window or buffer state leaks from the test.
-assert_mapping("n", "we").callback()
+feed("we")
 local tree_open = vim.wait(3000, function()
     return vim.bo.filetype == "NvimTree"
 end, 20)
@@ -461,6 +464,50 @@ for _, lhs in ipairs({
 }) do
     assert_buffer_mapping(tree_buf_for_inventory, "n", lhs)
 end
+
+local function find_tree_line(fragment)
+    for row, line in ipairs(vim.api.nvim_buf_get_lines(tree_buf_for_inventory, 0, -1, false)) do
+        if line:find(fragment, 1, true) then return row end
+    end
+end
+local nested_directory_row = find_tree_line("nested-fixture")
+if not nested_directory_row then fail("NvimTree did not list the nested fixture directory") end
+vim.api.nvim_win_set_cursor(0, { nested_directory_row, 0 })
+feed("l")
+local nested_entry_visible = vim.wait(1000, function()
+    return find_tree_line("nested-entry.txt") ~= nil
+end, 10)
+if not nested_entry_visible then fail("NvimTree l did not expand the nested fixture directory") end
+mark_action_tested("n", "l")
+nested_directory_row = find_tree_line("nested-fixture")
+vim.api.nvim_win_set_cursor(0, { nested_directory_row, 0 })
+feed("h")
+local nested_entry_hidden = vim.wait(1000, function()
+    return find_tree_line("nested-entry.txt") == nil
+end, 10)
+if not nested_entry_hidden then fail("NvimTree h did not collapse the nested fixture directory") end
+mark_action_tested("n", "h")
+
+feed("q")
+local tree_closed_by_key = vim.wait(1000, function() return vim.bo.filetype ~= "NvimTree" end, 10)
+if not tree_closed_by_key then fail("NvimTree q did not close the tree window") end
+mark_action_tested("n", "q")
+
+feed("we")
+tree_open = vim.wait(3000, function() return vim.bo.filetype == "NvimTree" end, 20)
+if not tree_open then fail("we did not reopen nvim-tree for file open test") end
+tree_buf_for_inventory = vim.api.nvim_get_current_buf()
+local fixture_tree_row
+for row, line in ipairs(vim.api.nvim_buf_get_lines(tree_buf_for_inventory, 0, -1, false)) do
+    if line:find("keybinding-fixture.txt", 1, true) then fixture_tree_row = row end
+end
+if not fixture_tree_row then fail("NvimTree fixture did not display the temporary search file") end
+vim.api.nvim_win_set_cursor(0, { fixture_tree_row, 0 })
+feed("<CR>")
+if vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":p") ~= fixture_path then
+    fail("NvimTree <CR> did not open the temporary search file")
+end
+mark_action_tested("n", "<CR>")
 require("nvim-tree.api").tree.close()
 vim.cmd.buffer(vim.fn.bufnr(fixture_path))
 
