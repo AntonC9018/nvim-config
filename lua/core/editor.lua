@@ -14,8 +14,8 @@ vim.opt.expandtab = true
 vim.opt.completeopt:remove("preview")
 
 vim.o.mouse = 'a'
--- Touchpads arrive as repeated wheel events: keep each step to one line.
-vim.opt.mousescroll = { 'ver:1', 'hor:1' }
+-- Wheel and touchpad reports share the same vertical step in terminals.
+vim.opt.mousescroll = { 'ver:3', 'hor:1' }
 
 vim.o.scrolloff = 5
 vim.o.relativenumber = true
