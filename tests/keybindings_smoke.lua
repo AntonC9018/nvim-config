@@ -106,6 +106,12 @@ mark_action_tested("n", "<leader>ht")
 vim.api.nvim_feedkeys(" ht", "xt", false)
 if vim.o.hlsearch ~= highlight_before then fail("<leader>ht did not restore search highlighting") end
 
+vim.api.nvim_feedkeys(" th", "xt", false)
+if vim.o.hlsearch == highlight_before then fail("<leader>th did not toggle search highlighting") end
+mark_action_tested("n", "<leader>th")
+vim.api.nvim_feedkeys(" th", "xt", false)
+if vim.o.hlsearch ~= highlight_before then fail("<leader>th did not restore search highlighting") end
+
 if vim.fn.executable("rg") ~= 1 then
     fail("ripgrep executable 'rg' is unavailable (required by wf and wF)")
 end
@@ -115,6 +121,9 @@ vim.fn.mkdir(fixture_dir, "p")
 local fixture_path = fixture_dir .. "/keybinding-fixture.txt"
 local needle = "nvim_keybinding_smoke_fixture_7d31"
 vim.fn.writefile({ "fixture line", needle .. " searchable text" }, fixture_path)
+local nested_tree_dir = fixture_dir .. "/nested-fixture"
+vim.fn.mkdir(nested_tree_dir, "p")
+vim.fn.writefile({ "nested tree action fixture" }, nested_tree_dir .. "/nested-entry.txt")
 local lsp_fixture_path = fixture_dir .. "/lsp-smoke.lua"
 local old_symbol = "fixtureRenameTarget"
 local new_symbol = "fixtureRenamedTarget"
@@ -179,6 +188,194 @@ mark_action_tested("n", "<C-k>")
 feed("wo")
 if #vim.api.nvim_list_wins() ~= 1 then fail("wo did not close other fixture windows") end
 mark_action_tested("n", "wo")
+
+-- Check normal-mode aliases with reversible fixture state.
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { "first", "second", "third" })
+vim.api.nvim_buf_set_mark(0, "[", 1, 0, {})
+vim.api.nvim_win_set_cursor(0, { 3, 0 })
+feed(" *")
+if vim.api.nvim_win_get_cursor(0)[1] ~= 2 then fail("<leader>* did not move to the end of the last change") end
+mark_action_tested("n", "<leader>*")
+feed("<Esc>")
+
+local trouble_namespace = vim.api.nvim_create_namespace("keybinding-smoke-trouble")
+vim.diagnostic.set(trouble_namespace, vim.api.nvim_get_current_buf(), {
+    { lnum = 0, col = 0, message = "fixture diagnostic", severity = vim.diagnostic.severity.WARN },
+})
+feed("wd")
+local trouble_open = vim.wait(3000, function()
+    for _, winid in ipairs(vim.api.nvim_list_wins()) do
+        if vim.bo[vim.api.nvim_win_get_buf(winid)].filetype == "trouble" then return true end
+    end
+    return false
+end, 20)
+if not trouble_open then
+    fail("wd did not open the diagnostics panel")
+end
+mark_action_tested("n", "wd")
+feed("wd")
+local trouble_closed = vim.wait(3000, function()
+    for _, winid in ipairs(vim.api.nvim_list_wins()) do
+        if vim.bo[vim.api.nvim_win_get_buf(winid)].filetype == "trouble" then return false end
+    end
+    return true
+end, 20)
+if not trouble_closed then fail("wd did not close the diagnostics panel") end
+feed(" wd")
+local leader_trouble_open = vim.wait(3000, function()
+    for _, winid in ipairs(vim.api.nvim_list_wins()) do
+        if vim.bo[vim.api.nvim_win_get_buf(winid)].filetype == "trouble" then return true end
+    end
+    return false
+end, 20)
+if not leader_trouble_open then fail("<leader>wd did not open the diagnostics panel") end
+mark_action_tested("n", "<leader>wd")
+feed(" wd")
+local leader_trouble_closed = vim.wait(3000, function()
+    for _, winid in ipairs(vim.api.nvim_list_wins()) do
+        if vim.bo[vim.api.nvim_win_get_buf(winid)].filetype == "trouble" then return false end
+    end
+    return true
+end, 20)
+if not leader_trouble_closed then fail("<leader>wd did not close the diagnostics panel") end
+vim.diagnostic.reset(trouble_namespace)
+
+-- Workspace diagnostic navigation consumes fixture diagnostics without an
+-- LSP server and can be checked in both directions.
+local navigation_namespace = vim.api.nvim_create_namespace("keybinding-smoke-navigation")
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { "first", "middle", "last" })
+vim.diagnostic.set(navigation_namespace, vim.api.nvim_get_current_buf(), {
+    { lnum = 0, col = 1, message = "first fixture diagnostic", severity = vim.diagnostic.severity.WARN },
+    { lnum = 2, col = 2, message = "last fixture diagnostic", severity = vim.diagnostic.severity.ERROR },
+})
+vim.api.nvim_win_set_cursor(0, { 1, 0 })
+feed("ge")
+if not vim.deep_equal(vim.api.nvim_win_get_cursor(0), { 1, 1 }) then
+    fail("ge did not visit the next fixture diagnostic: " .. vim.inspect(vim.api.nvim_win_get_cursor(0)))
+end
+feed("ge")
+if not vim.deep_equal(vim.api.nvim_win_get_cursor(0), { 3, 2 }) then fail("ge did not advance to the next fixture line") end
+mark_action_tested("n", "ge")
+feed("gE")
+if not vim.deep_equal(vim.api.nvim_win_get_cursor(0), { 1, 1 }) then fail("gE did not visit the previous fixture diagnostic") end
+mark_action_tested("n", "gE")
+vim.diagnostic.reset(navigation_namespace)
+
+-- Exercise the insert-mode word-editing aliases against scratch buffers. Each
+-- key is fed through Neovim's mapping resolver; no external clipboard or file
+-- is involved.
+local function insert_case(lhs, initial, cursor_col, keys, expected, label, entry)
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { initial })
+    vim.api.nvim_win_set_cursor(0, { 1, cursor_col })
+    feed((entry or "i") .. keys .. "<Esc>")
+    local actual = vim.api.nvim_get_current_line()
+    if actual ~= expected then
+        fail(label .. " produced " .. vim.inspect(actual) .. ", expected " .. vim.inspect(expected))
+    end
+    mark_action_tested("i", lhs)
+end
+
+insert_case("<C-h>", "alpha beta", 9, "<C-h>X", "alpha X", "insert <C-h>", "A")
+insert_case("<C-BS>", "alpha beta", 9, "<C-BS>X", "alpha X", "insert <C-BS>", "A")
+insert_case("<C-Del>", "alpha beta", 0, "<C-Del>X", "X beta", "insert <C-Del>")
+insert_case("<C-z>", "base", 0, "X<C-z>", "base", "insert <C-z> undo", "A")
+insert_case("<C-y>", "base", 0, "X<C-z><C-y>", "baseX", "insert <C-y> redo", "A")
+
+-- Command-line word deletion is checked by observing real CmdlineChanged
+-- input while the command remains unexecuted; <Esc> cancels the fixture line.
+local function commandline_case(lhs, initial, expected, prefix_keys)
+    local final_cmdline
+    local group = vim.api.nvim_create_augroup("KeybindingCommandlineSmoke", { clear = false })
+    local autocmd = vim.api.nvim_create_autocmd("CmdlineChanged", {
+        group = group,
+        callback = function()
+            if vim.fn.getcmdtype() == ":" then final_cmdline = vim.fn.getcmdline() end
+        end,
+    })
+    feed(":" .. initial .. (prefix_keys or "") .. lhs .. "<Esc>")
+    vim.api.nvim_del_autocmd(autocmd)
+    if final_cmdline ~= expected then
+        fail("command-line " .. lhs .. " produced " .. vim.inspect(final_cmdline)
+            .. ", expected " .. vim.inspect(expected))
+    end
+    mark_action_tested("c", lhs)
+end
+
+commandline_case("<C-h>", "echo alpha beta", "echo alpha ")
+commandline_case("<C-BS>", "echo alpha beta", "echo alpha ")
+commandline_case("<C-Del>", "echo alpha beta", "echo alpha ", "<Home>" .. string.rep("<Right>", #"echo alpha "))
+if vim.fn.mode() ~= "n" then fail("command-line Escape did not cancel the fixture command") end
+mark_action_tested("c", "<Esc>")
+
+-- Exercise the visual indent mappings on disposable text. The selection is
+-- restored by the mappings' last-change motion, then explicitly exited.
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { "first", "second" })
+vim.api.nvim_win_set_cursor(0, { 1, 0 })
+feed("Vj>")
+if vim.api.nvim_buf_get_lines(0, 0, -1, false)[1] ~= "    first" then
+    fail("visual > did not indent the selected fixture lines")
+end
+mark_action_tested("x", ">")
+mark_action_tested("v", ">")
+feed("<Esc>")
+vim.api.nvim_win_set_cursor(0, { 1, 0 })
+feed("Vj<")
+if vim.api.nvim_buf_get_lines(0, 0, -1, false)[1] ~= "first" then
+    fail("visual < did not unindent the selected fixture lines")
+end
+mark_action_tested("x", "<")
+mark_action_tested("v", "<")
+feed("<Esc>")
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { "    first", "        second" })
+vim.api.nvim_win_set_cursor(0, { 1, 0 })
+feed("Vj=")
+local equal_lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+if equal_lines[1] ~= "first" or equal_lines[2] ~= "second" then
+    fail("visual = produced " .. vim.inspect(equal_lines))
+end
+mark_action_tested("x", "=")
+mark_action_tested("v", "=")
+feed("<Esc>")
+
+-- The visual whitespace cleanup alias must trim only selected fixture lines,
+-- leaving the unselected line's carriage return untouched.
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { "first \r", "second\r", "keep\r" })
+vim.api.nvim_win_set_cursor(0, { 1, 0 })
+feed("Vj")
+feed(" tw")
+local trimmed_visual_lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+if not vim.deep_equal(trimmed_visual_lines, { "first ", "second", "keep\r" }) then
+    fail("visual <leader>tw produced " .. vim.inspect(trimmed_visual_lines))
+end
+mark_action_tested("v", "<leader>tw")
+mark_action_tested("x", "<leader>tw")
+
+-- The Lua execution mappings are confined to disposable fixture lines and
+-- temporary globals that are removed immediately afterward.
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { "vim.g.keybinding_smoke_line = 'ran'" })
+vim.api.nvim_win_set_cursor(0, { 1, 0 })
+feed(" xx")
+if vim.g.keybinding_smoke_line ~= "ran" then fail("<leader>xx did not execute the current fixture line") end
+vim.g.keybinding_smoke_line = nil
+mark_action_tested("n", "<leader>xx")
+
+vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+    "vim.g.keybinding_smoke_visual_first = true",
+    "vim.g.keybinding_smoke_visual_second = true",
+})
+vim.api.nvim_win_set_cursor(0, { 1, 0 })
+feed("Vj")
+feed(" x")
+local visual_lua_ran = vim.wait(1000, function()
+    return vim.g.keybinding_smoke_visual_first == true and vim.g.keybinding_smoke_visual_second == true
+end, 10)
+if not visual_lua_ran then fail("visual <leader>x did not execute the selected fixture lines") end
+vim.g.keybinding_smoke_visual_first = nil
+vim.g.keybinding_smoke_visual_second = nil
+mark_action_tested("v", "<leader>x")
+mark_action_tested("x", "<leader>x")
+
+vim.cmd("cd " .. vim.fn.fnameescape(fixture_dir))
 
 -- Start the configured Lua language server on a temporary source file, then
 -- exercise its real initialize, hover and rename requests through the bound
@@ -254,7 +451,7 @@ if not rename_undo_complete then fail("undo did not reverse the fixture LSP rena
 
 -- Exercise both file-tree entry points against the temporary fixture, then
 -- close the tree so no window or buffer state leaks from the test.
-assert_mapping("n", "we").callback()
+feed("we")
 local tree_open = vim.wait(3000, function()
     return vim.bo.filetype == "NvimTree"
 end, 20)
@@ -267,6 +464,50 @@ for _, lhs in ipairs({
 }) do
     assert_buffer_mapping(tree_buf_for_inventory, "n", lhs)
 end
+
+local function find_tree_line(fragment)
+    for row, line in ipairs(vim.api.nvim_buf_get_lines(tree_buf_for_inventory, 0, -1, false)) do
+        if line:find(fragment, 1, true) then return row end
+    end
+end
+local nested_directory_row = find_tree_line("nested-fixture")
+if not nested_directory_row then fail("NvimTree did not list the nested fixture directory") end
+vim.api.nvim_win_set_cursor(0, { nested_directory_row, 0 })
+feed("l")
+local nested_entry_visible = vim.wait(1000, function()
+    return find_tree_line("nested-entry.txt") ~= nil
+end, 10)
+if not nested_entry_visible then fail("NvimTree l did not expand the nested fixture directory") end
+mark_action_tested("n", "l")
+nested_directory_row = find_tree_line("nested-fixture")
+vim.api.nvim_win_set_cursor(0, { nested_directory_row, 0 })
+feed("h")
+local nested_entry_hidden = vim.wait(1000, function()
+    return find_tree_line("nested-entry.txt") == nil
+end, 10)
+if not nested_entry_hidden then fail("NvimTree h did not collapse the nested fixture directory") end
+mark_action_tested("n", "h")
+
+feed("q")
+local tree_closed_by_key = vim.wait(1000, function() return vim.bo.filetype ~= "NvimTree" end, 10)
+if not tree_closed_by_key then fail("NvimTree q did not close the tree window") end
+mark_action_tested("n", "q")
+
+feed("we")
+tree_open = vim.wait(3000, function() return vim.bo.filetype == "NvimTree" end, 20)
+if not tree_open then fail("we did not reopen nvim-tree for file open test") end
+tree_buf_for_inventory = vim.api.nvim_get_current_buf()
+local fixture_tree_row
+for row, line in ipairs(vim.api.nvim_buf_get_lines(tree_buf_for_inventory, 0, -1, false)) do
+    if line:find("keybinding-fixture.txt", 1, true) then fixture_tree_row = row end
+end
+if not fixture_tree_row then fail("NvimTree fixture did not display the temporary search file") end
+vim.api.nvim_win_set_cursor(0, { fixture_tree_row, 0 })
+feed("<CR>")
+if vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":p") ~= fixture_path then
+    fail("NvimTree <CR> did not open the temporary search file")
+end
+mark_action_tested("n", "<CR>")
 require("nvim-tree.api").tree.close()
 vim.cmd.buffer(vim.fn.bufnr(fixture_path))
 
@@ -335,7 +576,9 @@ local function run_picker_mapping(lhs, query, expected)
         end
         return false
     end, 20)
-    if not result_found then fail(lhs .. " did not return fixture match " .. expected) end
+    if not result_found then
+        fail(lhs .. " did not return fixture match " .. expected)
+    end
     require("telescope.actions").close(prompt_bufnr)
     mark_action_tested("n", lhs)
 end
@@ -349,6 +592,20 @@ run_picker_mapping("wF", needle, needle)
 vim.api.nvim_win_set_cursor(0, { 2, 0 })
 run_picker_mapping("w*", nil, needle)
 run_picker_mapping("wp", "keybinding-fixture", "keybinding-fixture.txt")
+run_picker_mapping("wy", nil, "keybinding-fixture")
+run_picker_mapping("wh", "help", "help")
+run_picker_mapping("wk", "wh", "wh")
+
+-- Bufferize the test's own message into a temporary buffer and close it.
+print("keybinding bufferize fixture marker")
+feed("wm")
+local bufferized_message = vim.wait(1000, function()
+    local current_text = table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), "\n")
+    return current_text:find("keybinding bufferize fixture marker", 1, true) ~= nil
+end, 10)
+if not bufferized_message then fail("wm did not show the fixture message in a buffer") end
+mark_action_tested("n", "wm")
+vim.cmd("quit")
 
 -- Run the system clipboard mappings through an in-memory provider so the
 -- actual mappings and register path are exercised without touching the OS.
@@ -371,9 +628,220 @@ feed(" p")
 if vim.api.nvim_get_current_line() ~= "clipboard round-trip fixture" then
     fail("<leader>p did not paste through the isolated clipboard provider")
 end
-vim.g.clipboard = old_clipboard
 mark_action_tested("n", "<leader>y")
 mark_action_tested("n", "<leader>p")
+
+-- Exercise visual clipboard operations through input with the isolated
+-- provider. Every case starts from disposable lines and checks both the text
+-- result and, for copying operations, the exact provider payload.
+local visual_clipboard_cases = {
+    {
+        lhs = "<leader>y",
+        lines = { "copy first", "copy second", "keep" },
+        expected_lines = { "copy first", "copy second", "keep" },
+        expected_clipboard = { "copy first", "copy second", "" },
+    },
+    {
+        lhs = "<leader>d",
+        lines = { "cut first", "cut second", "keep" },
+        expected_lines = { "keep" },
+        expected_clipboard = { "cut first", "cut second", "" },
+    },
+    {
+        lhs = "<leader>p",
+        lines = { "old first", "old second", "keep" },
+        paste = { "paste first", "paste second" },
+        expected_lines = { "paste first", "paste second", "keep" },
+    },
+    {
+        lhs = "<leader>P",
+        lines = { "old first", "old second", "keep" },
+        paste = { "paste first", "paste second" },
+        expected_lines = { "paste first", "paste second", "keep" },
+    },
+    {
+        lhs = "<leader>c",
+        lines = { "    indented first", "  indented second", "keep" },
+        expected_lines = { "    indented first", "  indented second", "keep" },
+        expected_clipboard = { "  indented first", "indented second", "" },
+    },
+}
+
+for _, case in ipairs(visual_clipboard_cases) do
+    clipboard_payload = vim.deepcopy(case.paste or {})
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, case.lines)
+    vim.api.nvim_win_set_cursor(0, { 1, 0 })
+    feed("Vj")
+    if vim.fn.mode() ~= "V" then fail("visual clipboard fixture did not enter linewise selection") end
+    feed(case.lhs)
+    local actual_lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+    if not vim.deep_equal(actual_lines, case.expected_lines) then
+        fail("visual " .. case.lhs .. " produced " .. vim.inspect(actual_lines)
+            .. ", expected " .. vim.inspect(case.expected_lines))
+    end
+    if case.expected_clipboard then
+        vim.wait(100, function()
+            return vim.deep_equal(clipboard_payload, case.expected_clipboard)
+        end, 10)
+    end
+    if case.expected_clipboard and not vim.deep_equal(clipboard_payload, case.expected_clipboard) then
+        fail("visual " .. case.lhs .. " copied " .. vim.inspect(clipboard_payload)
+            .. ", expected " .. vim.inspect(case.expected_clipboard))
+    end
+    mark_action_tested("v", case.lhs)
+    mark_action_tested("x", case.lhs)
+    feed("<Esc>")
+end
+
+-- The replacement-register visual alias replaces only the selected word.
+clipboard_payload = { "replacement" }
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { "old word" })
+vim.api.nvim_win_set_cursor(0, { 1, 0 })
+feed("viw")
+feed(" gr")
+if vim.api.nvim_get_current_line() ~= "replacement word" then
+    fail("visual <leader>gr did not replace the selected fixture word")
+end
+mark_action_tested("v", "<leader>gr")
+mark_action_tested("x", "<leader>gr")
+
+local normal_clipboard_cases = {
+    {
+        lhs = "<leader>d",
+        lines = { "cut this line", "keep this line" },
+        clipboard = nil,
+        expected_lines = { "keep this line" },
+        expected_clipboard = { "cut this line", "" },
+    },
+    {
+        lhs = "<leader>P",
+        lines = { "target line" },
+        clipboard = { "insert" },
+        expected_lines = { "inserttarget line" },
+    },
+    {
+        lhs = "<leader>c",
+        lines = { "plain line" },
+        clipboard = nil,
+        expected_lines = { "plain line" },
+        expected_clipboard = { "plain line" },
+    },
+}
+for _, case in ipairs(normal_clipboard_cases) do
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, case.lines)
+    vim.api.nvim_win_set_cursor(0, { 1, 0 })
+    if case.clipboard then clipboard_payload = vim.deepcopy(case.clipboard) end
+    feed(case.lhs)
+    local actual_lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+    if not vim.deep_equal(actual_lines, case.expected_lines) then
+        fail("normal " .. case.lhs .. " produced " .. vim.inspect(actual_lines)
+            .. ", expected " .. vim.inspect(case.expected_lines))
+    end
+    if case.expected_clipboard and not vim.deep_equal(clipboard_payload, case.expected_clipboard) then
+        fail("normal " .. case.lhs .. " copied " .. vim.inspect(clipboard_payload)
+            .. ", expected " .. vim.inspect(case.expected_clipboard))
+    end
+    mark_action_tested("n", case.lhs)
+end
+
+clipboard_payload = { "replacement" }
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { "old word" })
+vim.api.nvim_win_set_cursor(0, { 1, 0 })
+feed(" griw")
+if vim.api.nvim_get_current_line() ~= "replacement word" then
+    fail("<leader>gr did not replace the fixture word from the isolated clipboard")
+end
+mark_action_tested("n", "<leader>gr")
+vim.g.clipboard = old_clipboard
+
+-- Exercise the exchange operator and visual mappings on scratch lines. Each
+-- interaction uses the configured key sequence and checks the resulting text.
+local operator_action_cases = {
+    {
+        lhs = "cx",
+        name = "cx swaps words",
+        setup = { "one two three" },
+        action = function()
+            feed("cxiw")
+            vim.api.nvim_win_set_cursor(0, { 1, 4 })
+            feed("cxiw")
+        end,
+        expected = { "two one three" },
+    },
+    {
+        lhs = "cxx",
+        name = "cxx swaps lines",
+        setup = { "first line", "second line" },
+        action = function()
+            vim.api.nvim_win_set_cursor(0, { 1, 0 })
+            feed("cxx")
+            vim.api.nvim_win_set_cursor(0, { 2, 0 })
+            feed("cxx")
+        end,
+        expected = { "second line", "first line" },
+    },
+    {
+        lhs = "Xs",
+        name = "Xs cancels a pending exchange",
+        setup = { "keep these words" },
+        action = function()
+            feed("cxiwXs")
+        end,
+        expected = { "keep these words" },
+    },
+}
+
+for _, case in ipairs(operator_action_cases) do
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, case.setup)
+    vim.api.nvim_win_set_cursor(0, { 1, 0 })
+    case.action()
+    local actual_lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+    if not vim.deep_equal(actual_lines, case.expected) then
+        fail(case.name .. " produced " .. vim.inspect(actual_lines)
+            .. ", expected " .. vim.inspect(case.expected))
+    end
+    mark_action_tested("n", case.lhs)
+end
+
+local unnamed_register = vim.fn.getreg('"')
+local unnamed_register_type = vim.fn.getregtype('"')
+local substitute_cases = {
+    { lhs = "gr", keys = "griw", initial = "old word", replacement = "new", expected = "new word" },
+    { lhs = "grr", keys = "grr", initial = "old whole line", replacement = "new line", expected = "new line" },
+}
+for _, case in ipairs(substitute_cases) do
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { case.initial })
+    vim.api.nvim_win_set_cursor(0, { 1, 0 })
+    vim.fn.setreg('"', case.replacement)
+    feed(case.keys)
+    local actual = vim.api.nvim_get_current_line()
+    if actual ~= case.expected then
+        fail(case.lhs .. " substitution produced " .. vim.inspect(actual)
+            .. ", expected " .. vim.inspect(case.expected))
+    end
+    mark_action_tested("n", case.lhs)
+end
+
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { "old word" })
+vim.api.nvim_win_set_cursor(0, { 1, 0 })
+vim.fn.setreg('"', "new")
+feed("viwgr")
+local visual_substitute = vim.api.nvim_get_current_line()
+if visual_substitute ~= "new word" then
+    fail("visual gr substitution produced " .. vim.inspect(visual_substitute))
+end
+mark_action_tested("x", "gr")
+vim.fn.setreg('"', unnamed_register, unnamed_register_type)
+
+-- Visual X exchanges the selected word with the next selected word.
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { "left right" })
+vim.api.nvim_win_set_cursor(0, { 1, 0 })
+feed("viwX")
+vim.api.nvim_win_set_cursor(0, { 1, 5 })
+feed("viwX")
+local exchanged_words = vim.api.nvim_get_current_line()
+if exchanged_words ~= "right left" then fail("visual X produced " .. vim.inspect(exchanged_words)) end
+mark_action_tested("x", "X")
 
 -- Exercise Fugitive actions in a disposable local repository. The fake
 -- xdg-open executable captures GBrowse so no external application is opened.
@@ -585,6 +1053,64 @@ end
 
 -- Inventory global mappings from the config sources and the explicit
 -- buffer-local mappings checked above, separating actions from presence.
+-- W writes only a temporary fixture. Q closes a disposable split while
+-- leaving the main test window alive. Keep these at the end because :wa also
+-- writes other modified temporary buffers exercised above.
+local write_fixture_path = fixture_dir .. "/write-binding.txt"
+vim.cmd("enew")
+vim.cmd("file " .. vim.fn.fnameescape(write_fixture_path))
+local write_fixture_bufnr = vim.api.nvim_get_current_buf()
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { "write mapping fixture" })
+feed("W")
+local written_lines = vim.fn.readfile(write_fixture_path)
+if written_lines[1] ~= "write mapping fixture" then fail("W did not write the temporary fixture") end
+mark_action_tested("n", "W")
+
+vim.cmd("vsplit")
+local quit_win = vim.api.nvim_get_current_win()
+feed("Q")
+if vim.api.nvim_win_is_valid(quit_win) then fail("Q did not close the disposable fixture window") end
+mark_action_tested("n", "Q")
+
+-- wF must seed the directory-scoped grep with the actual visual selection.
+-- Feed a real characterwise selection through the mapping and inspect both
+-- Telescope's prompt and its live results; calling the callback directly would
+-- miss visual-mode exit and endpoint handling.
+local visual_search_term = "visual_selection_search_fixture_4c82"
+local visual_search_fixture_path = fixture_dir .. "/visual-search-fixture.txt"
+vim.fn.writefile({ "prefix " .. visual_search_term .. " suffix" }, visual_search_fixture_path)
+vim.cmd.edit(vim.fn.fnameescape(visual_search_fixture_path))
+vim.api.nvim_win_set_cursor(0, { 1, 7 })
+feed("v" .. string.rep("l", #visual_search_term - 1) .. "wF")
+local visual_prompt_bufnr
+local visual_picker_ready = vim.wait(5000, function()
+    for _, bufnr in ipairs(telescope_state.get_existing_prompt_bufnrs()) do
+        if telescope_state.get_status(bufnr).picker then
+            visual_prompt_bufnr = bufnr
+            return true
+        end
+    end
+    return false
+end, 20)
+if not visual_picker_ready then fail("visual wF did not open a Telescope picker") end
+local visual_picker = telescope_state.get_status(visual_prompt_bufnr).picker
+local visual_prompt = require("telescope.actions.state").get_current_line()
+if visual_prompt ~= visual_search_term then
+    fail("visual wF searched for " .. vim.inspect(visual_prompt) .. " instead of the selected text")
+end
+local visual_result_found = vim.wait(5000, function()
+    if not visual_picker.manager then return false end
+    for entry in visual_picker.manager:iter() do
+        local text = table.concat({ tostring(entry.ordinal or ""), tostring(entry.display or "") }, " ")
+        if text:find(visual_search_term, 1, true) then return true end
+    end
+    return false
+end, 20)
+if not visual_result_found then fail("visual wF did not return the selected fixture text") end
+require("telescope.actions").close(visual_prompt_bufnr)
+mark_action_tested("v", "wF")
+mark_action_tested("x", "wF")
+
 local source_by_sid = {}
 for _, script in ipairs(vim.fn.getscriptinfo()) do source_by_sid[script.sid] = script.name end
 local covered = {}
@@ -637,6 +1163,10 @@ print("ACTION-TESTED MAPPINGS: " .. table.concat(tested_names, ", "))
 print("PRESENCE-ONLY MAPPINGS: " .. table.concat(presence_names, ", "))
 
 vim.cmd.cd(vim.fn.fnameescape(original_cwd))
+vim.cmd.enew()
+local visual_search_bufnr = vim.fn.bufnr(visual_search_fixture_path)
+if visual_search_bufnr ~= -1 then vim.cmd("bwipeout " .. visual_search_bufnr) end
+vim.cmd("bwipeout " .. write_fixture_bufnr)
 vim.fn.delete(fixture_dir, "rf")
 print("PASS: full-user startup and all fixture-backed smoke actions above.")
-print("CONTEXTUAL MANUAL CHECKS: GUI font selection, terminal physical modifier delivery, interactive Quit/Write mappings, and environment-specific Roslyn/C#/TypeScript servers are not emulated by this headless fixture suite.")
+print("CONTEXTUAL MANUAL CHECKS: GUI font selection, terminal physical modifier delivery, wc command-history window, modified-buffer quit prompts, final-window quit behavior, and environment-specific C#/TypeScript language servers outside the Lua fixture are not emulated by this headless fixture suite.")
